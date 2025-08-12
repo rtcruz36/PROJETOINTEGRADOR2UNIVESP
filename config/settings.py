@@ -144,6 +144,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY', default = '')
+SECRET_KEY = config('SECRET_KEY')
+DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY')
 
 AUTH_USER_MODEL = 'accounts.User'
