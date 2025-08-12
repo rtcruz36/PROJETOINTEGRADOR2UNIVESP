@@ -28,8 +28,6 @@ sys.path.insert(0, str(APPS_DIR))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-dy7_w-h(t#ohm7$*)%^oc$ws-u85p8@i1i-a*qb5(foxh7=@!d'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -49,6 +47,9 @@ INSTALLED_APPS = [
     'apps.assessment.apps.AssessmentConfig',
     'apps.studychat.apps.StudychatConfig',
     'apps.analytics.apps.AnalyticsConfig',
+    'rest_framework',# Django Rest Framework
+    'rest_framework.authtoken',# Djoser precisa deste
+    'djoser',
 
     # APPS PADRÃO DO DJANGO (DEPOIS)
     'django.contrib.admin',
@@ -57,9 +58,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # BIBLIOTECAS DE TERCEIROS (POR ÚLTIMO)
-    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -102,6 +100,42 @@ DATABASES = {
     }
 }
 
+# Configuração do Django Rest Framework (DRF)
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # Define JWT como o método principal de autenticação para a API
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        # Exige que os usuários estejam autenticados por padrão
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+# Configuração do Simple JWT
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # Duração do token de acesso (curto)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # Duração do token de refresh (longo)
+    'ROTATE_REFRESH_TOKENS': True, # Opcional: gera um novo refresh token a cada uso
+    'BLACKLIST_AFTER_ROTATION': True, # Opcional: invalida o refresh token antigo
+}
+
+# Configuração do Djoser
+DJOSER = {
+    'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
+    'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL': '#/activate/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL': False,  # Mude para True se quiser confirmação por e-mail
+    'SERIALIZERS': {
+        'user_create': 'apps.accounts.serializers.UserCreateSerializer',
+        'user': 'apps.accounts.serializers.UserSerializer',
+        'current_user': 'apps.accounts.serializers.UserSerializer',
+    },
+    'USER_ID_FIELD': 'id',
+    'LOGIN_FIELD': 'email', # Usar email para login
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
