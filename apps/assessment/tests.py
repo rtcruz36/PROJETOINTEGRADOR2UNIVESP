@@ -106,8 +106,8 @@ class AssessmentViewEdges(APITestCase):
         url = reverse("generate-quiz")
         resp = self.client.post(url, {"topic_id": self.topic.id}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        self.assertIn("erro", resp.data)
-        self.assertIn("inesperado", resp.data["erro"])
+        self.assertIn("error", resp.data)  # Verifica se a chave 'error' existe
+        self.assertIn("inesperado", resp.data["error"])  # Verifica o conteúdo da mensagem
         
     def test_quiz_viewset_filters_by_logged_user(self):
         # cria quiz do usuário logado

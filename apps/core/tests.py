@@ -2,7 +2,7 @@
 
 # apps/core/tests.py
 
-import json as _json
+import json
 from unittest.mock import patch
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -48,7 +48,7 @@ class DeepseekServiceMoreEdges(TestCase):
         # JSON válido, mas com lista vazia -> cobre o `if not subtopicos_analizados: return {}`
         mock_api_call.return_value = {
             "choices": [{
-                "message": {"content": _json.dumps({"analise_subtopicos": []})}
+                "message": {"content": json.dumps({"analise_subtopicos": []})}
             }]
         }
 
