@@ -3,6 +3,10 @@
 from rest_framework import serializers
 from .models import Course, Topic, Subtopic
 from apps.core.services import deepseek_service
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SubtopicSerializer(serializers.ModelSerializer):
     """
@@ -37,52 +41,70 @@ class CourseCreationSerializer(serializers.Serializer):
     course_description = serializers.CharField(required=False, allow_blank=True, help_text="Descrição opcional da disciplina.")
 
     def create(self, validated_data):
-        """
-        Lógica central que orquestra a criação dos objetos no banco de dados.
-        """
-        course_title = validated_data['course_title']
-        topic_title = validated_data['topic_title']
-        course_description = validated_data.get('course_description', '')
-        user = self.context['request'].user
+        course_title = validated_data["course_title"].strip()
+        topic_title  = validated_data["topic_title"].strip()
+        course_description = (validated_data.get("course_description") or "").strip()
+        user = self.context["request"].user
 
-        # 1. Cria ou obtém o Curso (evita duplicatas para o mesmo usuário)
-        course, _ = Course.objects.get_or_create(
-            user=user,
-            title__iexact=course_title,
-            defaults={'title': course_title, 'description': course_description}
-        )
+        # 1) Course case-insensitive (get_or_create não aceita __iexact)
+        course = (Course.objects
+                  .filter(user=user, title__iexact=course_title)
+                  .first())
+        if not course:
+            course = Course.objects.create(
+                user=user,
+                title=course_title,
+                description=course_description
+            )
 
-        # 2. Cria o Tópico principal associado ao curso
-        # Usamos get_or_create para evitar erro se o tópico já existir
-        topic, topic_created = Topic.objects.get_or_create(
-            course=course,
-            title__iexact=topic_title,
-            defaults={'title': topic_title}
-        )
+        # 2) Topic case-insensitive
+        topic = (Topic.objects
+                 .filter(course=course, title__iexact=topic_title)
+                 .first())
+        topic_created = False
+        if not topic:
+            topic = Topic.objects.create(course=course, title=topic_title, order=1)
+            topic_created = True
 
-        # 3. Se o tópico foi recém-criado, busca sugestões da IA
+        # 3) Popular com IA só quando recém-criado
         if topic_created:
-            # Chama o serviço da IA para gerar o plano de estudo e os subtópicos
             try:
-                # Gera o plano de estudo textual para o campo 'suggested_study_plan'
+                # Plano sugerido (string). Se vier fallback vazio, apenas não grava nada.
                 plan_text = deepseek_service.sugerir_plano_de_topico(course.title, topic.title)
-                topic.suggested_study_plan = plan_text
-                topic.save()
+                if plan_text:
+                    topic.suggested_study_plan = plan_text
+                    topic.save(update_fields=["suggested_study_plan"])
 
-                # Gera a lista de subtópicos
-                suggested_subtopics = deepseek_service.sugerir_subtopicos(topic)
+                # Subtópicos sugeridos (list[str] ou [])
+                suggested_subtopics = deepseek_service.sugerir_subtopicos(topic) or []
 
-                # Cria os objetos Subtopic no banco de dados
-                Subtopic.objects.bulk_create([
-                    Subtopic(topic=topic, title=subtopic_title, order=index)
-                    for index, subtopic_title in enumerate(suggested_subtopics)
-                ])
+                # Normalização: remover vazios, duplicados e espaços
+                seen = set()
+                cleaned = []
+                for s in suggested_subtopics:
+                    s_norm = (s or "").strip()
+                    if not s_norm:
+                        continue
+                    if s_norm.lower() in seen:
+                        continue
+                    seen.add(s_norm.lower())
+                    cleaned.append(s_norm)
+
+                # Criação em lote (ordem começando em 1)
+                if cleaned:
+                    with transaction.atomic():
+                        Subtopic.objects.bulk_create([
+                            Subtopic(topic=topic, title=title, order=idx)
+                            for idx, title in enumerate(cleaned, start=1)
+                        ])
+                else:
+                    logger.warning("IA não retornou subtópicos válidos para o tópico '%s'.", topic.title)
+
             except Exception as e:
-                # Se a API falhar, o tópico ainda existe, mas sem subtópicos.
-                # O ideal é logar esse erro.
-                print(f"ERRO: Falha ao popular tópico com dados da IA: {e}")
-        
-        return topic # Retorna o tópico criado/encontrado
+                # Não quebra o fluxo de criação do curso/tópico
+                logger.exception("Falha ao popular tópico com dados da IA: %s", e)
+
+        return topic
 
 class CourseDetailSerializer(serializers.ModelSerializer):
     """
