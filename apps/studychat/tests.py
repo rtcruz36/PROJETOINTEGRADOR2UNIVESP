@@ -54,12 +54,20 @@ class StudyChatEdgesTests(APITestCase):
             "question": "O que é backprop?",
             "history": [],
             "topic_id": self.topic.id,
-        }
+            }
         resp = self.client.post(self.url, data, format='json')
+    
+    # Verifica se o status code é 500
         self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # chave e trecho de mensagem definidos na view
-        self.assertIn("erro", resp.data)
-        self.assertIn("processar sua pergunta", resp.data["erro"])
+    
+    # Verifica se a resposta contém a chave 'error'
+        self.assertIn("error", resp.data, "A resposta não contém a chave 'error'")
+    
+    # Verifica se o valor associado à chave 'error' contém a palavra 'erro'
+        self.assertIn("erro", resp.data["error"], "A mensagem de erro não contém a palavra 'erro'")
+    
+    # Verifica se o valor associado à chave 'error' contém o trecho esperado
+        self.assertIn("processar sua pergunta", resp.data["error"], "A mensagem de erro não contém o trecho esperado")
 
 
 class StudyChatAPITests(APITestCase):

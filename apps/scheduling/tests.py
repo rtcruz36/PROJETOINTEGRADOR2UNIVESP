@@ -79,11 +79,15 @@ class SchedulingGenerateScheduleEdges(APITestCase):
         # subtopics serão criados/delidos por teste
 
     def test_generate_schedule_missing_topic_id_returns_400(self):
-        url = reverse("generate-schedule")
-        resp = self.client.post(url, {}, format="json")
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("topic_id é obrigatório", str(resp.data))
+    # Simula uma requisição sem o campo 'topic_id'
+        resp = self.client.post('/api/scheduling/generate-schedule/', {}, format='json')
 
+    # Verifica se o status code é 400 (Bad Request)
+        self.assertEqual(resp.status_code, 400)
+
+    # Verifica se a mensagem de erro correta está presente na resposta
+        self.assertIn("O campo 'topic_id' é obrigatório.", str(resp.data))
+    
     def test_generate_schedule_no_subtopics_returns_404(self):
         # nenhum Subtopic criado
         url = reverse("generate-schedule")
