@@ -4,7 +4,54 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from apps.accounts.models import User, Profile
+from django.test import TestCase
+from django.contrib.auth import get_user_model
+from unittest.mock import patch
 
+
+User = get_user_model()
+
+class AccountsModelsAndSignalsTests(TestCase):
+    def test_user_str_returns_email(self):
+        u = User.objects.create_user(username="john", email="john@example.com", password="x")
+        self.assertEqual(str(u), "john@example.com")  # cobre User.__str__
+
+    def test_profile_str_uses_username(self):
+        u = User.objects.create_user(username="ana", email="ana@example.com", password="x")
+        # sinal deve ter criado o profile
+        p = Profile.objects.get(user=u)
+        self.assertIn("Perfil de ana", str(p))  # cobre Profile.__str__
+
+    def test_signal_recreates_profile_when_missing_on_update(self):
+    
+    #Cobre o ramo do sinal post_save com created=False e sem atributo 'profile':#
+   # - cria usuário (created=True -> já cobre a criação)#
+    #- apaga o Profile#
+   # - salva o usuário de novo (created=False), o sinal deve recriar o Profile
+
+    # Cria um usuário, o que gera automaticamente um perfil via sinal
+        u = User.objects.create_user(username="maria", email="maria@example.com", password="x")
+        self.assertTrue(Profile.objects.filter(user=u).exists())
+
+    # Remover o profile para simular estado inconsistente
+        try:
+        # Exclui o perfil diretamente usando o objeto Profile
+            profile = Profile.objects.get(user=u)
+            profile.delete()
+        except Profile.DoesNotExist:
+            pass  # Se o perfil não existir, não faz nada
+
+    # Verifica se o perfil foi excluído corretamente
+        self.assertFalse(Profile.objects.filter(user=u).exists())
+
+    # Salvar o usuário novamente (created=False)
+        u.first_name = 'Maria'
+        u.save()
+
+    # Verificar se o perfil foi recriado
+        self.assertTrue(Profile.objects.filter(user=u).exists())
+        
+        
 class AccountsAPITests(APITestCase):
 
     def test_user_registration(self):

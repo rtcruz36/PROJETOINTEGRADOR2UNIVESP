@@ -3,13 +3,102 @@
 import datetime
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase,APIClient
 import numpy as np # Usaremos numpy para o cálculo da correlação no teste
+from django.test import SimpleTestCase
+from apps.analytics.views import get_correlation_interpretation
 
 from apps.accounts.models import User
 from apps.learning.models import Course, Topic
 from apps.scheduling.models import StudyLog
 from apps.assessment.models import Quiz, Attempt
+from unittest.mock import patch
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
+
+class StudyEffectivenessViewEdgeCases(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="u", password="p")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    @patch("apps.analytics.views.Topic")
+    @patch("apps.analytics.views.pearsonr")
+    def test_pearsonr_exception_results_in_none(self, mock_pearsonr, mock_topic):
+        # Arrange: mock do queryset para produzir analysis_data com >= 2 pontos
+        class Obj:
+            def __init__(self, i, title, mins, score):
+                self.id = i
+                self.title = title
+                self.total_minutes_studied = mins
+                self.average_quiz_score = score
+
+        # Encadear filter().annotate().distinct() retornando uma lista de objetos
+        mock_qs = [Obj(1, "A", 60, 0.7), Obj(2, "B", 120, 0.9)]
+        mock_topic.objects.filter.return_value.annotate.return_value.distinct.return_value = mock_qs
+
+        # Forçar exceção em pearsonr
+        mock_pearsonr.side_effect = Exception("boom")
+
+        # Act
+        resp = self.client.get("/api/analytics/study-effectiveness/")
+
+        # Assert
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIsNone(resp.data["correlation_coefficient"])
+        self.assertIn("Não há dados suficientes", resp.data["interpretation"])
+        
+    @patch("apps.analytics.views.Topic")
+    @patch("apps.analytics.views.pearsonr")
+    def test_nan_returns_none(self, mock_pearsonr, mock_topic):
+        class Obj:
+            def __init__(self, i, title, mins, score):
+                self.id = i
+                self.title = title
+                self.total_minutes_studied = mins
+                self.average_quiz_score = score
+
+        mock_qs = [Obj(1, "A", 100, 0.8), Obj(2, "B", 100, 0.8)]  # variância zero → NaN
+        mock_topic.objects.filter.return_value.annotate.return_value.distinct.return_value = mock_qs
+
+        # pearsonr devolve (nan, p)
+        import math
+        mock_pearsonr.return_value = (math.nan, 0.5)
+
+        resp = self.client.get("/api/analytics/study-effectiveness/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIsNone(resp.data["correlation_coefficient"])
+        self.assertIn("Não há dados suficientes", resp.data["interpretation"])
+
+
+class CorrelationInterpretationTests(SimpleTestCase):
+    def test_none_returns_no_data_message(self):
+        self.assertIn("Não há dados suficientes", get_correlation_interpretation(None))
+
+    def test_nan_returns_no_data_message(self):
+        import math
+        self.assertIn("Não há dados suficientes", get_correlation_interpretation(float("nan")))
+
+    def test_insignificant_returns_no_correlation_message(self):
+        self.assertIn("Não há correlação significativa", get_correlation_interpretation(0.05))
+
+    def test_weak_positive(self):
+        msg = get_correlation_interpretation(0.2)
+        self.assertIn("correlação fraca e positiva", msg)
+
+    def test_moderate_positive(self):
+        msg = get_correlation_interpretation(0.5)
+        self.assertIn("correlação moderada e positiva", msg)
+
+    def test_strong_positive(self):
+        msg = get_correlation_interpretation(0.8)
+        self.assertIn("correlação forte e positiva", msg)
+
+    def test_strong_negative(self):
+        msg = get_correlation_interpretation(-0.8)
+        self.assertIn("correlação forte e negativa", msg)
 
 class AnalyticsAPITests(APITestCase):
 

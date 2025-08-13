@@ -4,10 +4,151 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from unittest.mock import patch
-
 from apps.accounts.models import User
 from apps.learning.models import Course, Topic, Subtopic
 from apps.scheduling.models import StudyPlan
+from django.utils import timezone
+from django.contrib.auth import get_user_model
+from apps.scheduling.models import StudyPlan, StudyLog
+
+User = get_user_model()
+
+
+class SchedulingViewsetsQuerysetTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("u", email="u@x.com", password="p")
+        self.client.force_authenticate(self.user)
+
+        # dois cursos (um do usuário, outro de outrem)
+        self.course_own = Course.objects.create(user=self.user, title="Meu Curso")
+        other = User.objects.create_user("v", email="v@x.com", password="p")
+        self.course_other = Course.objects.create(user=other, title="Outro Curso")
+
+        # planos do usuário
+        self.plan1 = StudyPlan.objects.create(user=self.user, course=self.course_own, day_of_week=0, minutes_planned=30)
+        self.plan2 = StudyPlan.objects.create(user=self.user, course=self.course_own, day_of_week=1, minutes_planned=45)
+        # plano de outro usuário (não deve aparecer)
+        StudyPlan.objects.create(user=other, course=self.course_other, day_of_week=2, minutes_planned=60)
+
+    def test_studyplan_viewset_get_queryset_filtra_por_user_e_course_id(self):
+        # 1) lista geral: só do usuário
+        resp_all = self.client.get(reverse("studyplan-list"))
+        self.assertEqual(resp_all.status_code, status.HTTP_200_OK)
+        ids = {item["id"] for item in resp_all.data}
+        self.assertSetEqual(ids, {self.plan1.id, self.plan2.id})
+
+        # 2) com ?course_id= filtra ainda mais (cobre linha vermelha do filter(course_id=...))
+        resp_filtered = self.client.get(reverse("studyplan-list"), {"course_id": self.course_own.id})
+        self.assertEqual(resp_filtered.status_code, status.HTTP_200_OK)
+        self.assertTrue(all(i["course"] == self.course_own.id for i in resp_filtered.data))
+
+    def test_studylog_viewset_get_queryset_filtra_por_user_e_perform_create_define_user(self):
+        # cria um curso/tópico próprios
+        topic = Topic.objects.create(course=self.course_own, title="Tópico")
+        # cria StudyLog de outro usuário (não deve aparecer)
+        other = User.objects.create_user("z", email="z@x.com", password="p")
+        StudyLog.objects.create(user=other, course=self.course_other, topic=topic,
+                                date=timezone.now().date(), minutes_studied=5)
+
+        # POST sem campo user: perform_create deve setar user=request.user
+        payload = {
+            "course": self.course_own.id,
+            "topic": topic.id,
+            "date": timezone.now().date().isoformat(),
+            "minutes_studied": 25,
+            "notes": "estudo"
+        }
+        create = self.client.post(reverse("studylog-list"), payload, format="json")
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED)
+        created = StudyLog.objects.get(id=create.data["id"])
+        self.assertEqual(created.user, self.user)
+
+        # GET: queryset deve trazer apenas logs do usuário
+        resp = self.client.get(reverse("studylog-list"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(all(item["course"] == self.course_own.id for item in resp.data))
+
+
+class SchedulingGenerateScheduleEdges(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("u2", email="u2@x.com", password="p")
+        self.client.force_authenticate(self.user)
+
+        self.course = Course.objects.create(user=self.user, title="Curso X")
+        self.topic = Topic.objects.create(course=self.course, title="Tópico X")
+        # subtopics serão criados/delidos por teste
+
+    def test_generate_schedule_missing_topic_id_returns_400(self):
+        url = reverse("generate-schedule")
+        resp = self.client.post(url, {}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("topic_id é obrigatório", str(resp.data))
+
+    def test_generate_schedule_no_subtopics_returns_404(self):
+        # nenhum Subtopic criado
+        url = reverse("generate-schedule")
+        resp = self.client.post(url, {"topic_id": self.topic.id}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("não possui subtópicos", str(resp.data))
+
+    def test_generate_schedule_without_studyplan_returns_400(self):
+        # cobre a mensagem “Você precisa definir um plano de estudo...”
+        # (já tem teste similar, manteremos um garantidor aqui também)
+        url = reverse("generate-schedule")
+        Subtopic.objects.create(topic=self.topic, title="S1", order=1)
+        resp = self.client.post(url, {"topic_id": self.topic.id}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("precisa definir um plano de estudo", str(resp.data))
+
+    @patch("apps.scheduling.views.deepseek_service.distribuir_subtopicos_no_cronograma", return_value={})
+    def test_generate_schedule_ai_retorna_vazio_503(self, _mock_service):
+        # prepara dados mínimos
+        Subtopic.objects.create(topic=self.topic, title="S1", order=1)
+        StudyPlan.objects.create(user=self.user, course=self.course, day_of_week=0, minutes_planned=60)
+        url = reverse("generate-schedule")
+        resp = self.client.post(url, {"topic_id": self.topic.id}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    @patch("apps.scheduling.views.deepseek_service.distribuir_subtopicos_no_cronograma", side_effect=Exception("boom"))
+    def test_generate_schedule_ai_explodiu_500(self, _mock_service):
+        Subtopic.objects.create(topic=self.topic, title="S1", order=1)
+        StudyPlan.objects.create(user=self.user, course=self.course, day_of_week=0, minutes_planned=60)
+        url = reverse("generate-schedule")
+        resp = self.client.post(url, {"topic_id": self.topic.id}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn("inesperado", str(resp.data).lower())
+
+
+class SchedulingSerializersValidationEdges(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("s1", email="s1@x.com", password="p")
+        self.client.force_authenticate(self.user)
+        self.course_own = Course.objects.create(user=self.user, title="Meu")
+        self.topic = Topic.objects.create(course=self.course_own, title="Top")
+        self.other = User.objects.create_user("s2", email="s2@x.com", password="p")
+        self.course_other = Course.objects.create(user=self.other, title="Alheio")
+
+    def test_studyplan_serializer_bloqueia_curso_de_outro_usuario(self):
+        url = reverse("studyplan-list")
+        payload = {"course": self.course_other.id, "day_of_week": 3, "minutes_planned": 40}
+        resp = self.client.post(url, payload, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        # cobre a mensagem do ValidationError no serializer
+        self.assertIn("Você só pode criar planos de estudo", str(resp.data))
+
+    def test_studylog_serializer_bloqueia_curso_de_outro_usuario(self):
+        url = reverse("studylog-list")
+        payload = {
+            "course": self.course_other.id,          # curso de outro usuário (deve falhar)
+            "topic": self.topic.id,                   # topic não condizente com o curso → ainda falha no curso
+            "date": timezone.now().date().isoformat(),
+            "minutes_studied": 10,
+            "notes": "",
+        }
+        resp = self.client.post(url, payload, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("só pode registrar estudos", str(resp.data))  # mensagem do ValidationError
+
 
 class SchedulingAPITests(APITestCase):
 

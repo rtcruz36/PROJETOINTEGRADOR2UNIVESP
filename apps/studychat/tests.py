@@ -4,9 +4,63 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from unittest.mock import patch
-
 from apps.accounts.models import User
 from apps.learning.models import Course, Topic
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+class StudyChatEdgesTests(APITestCase):
+    def setUp(self):
+        # usuário autenticado (dono)
+        self.user = User.objects.create_user(
+            username='owner', email='owner@example.com', password='p'
+        )
+        self.client.force_authenticate(self.user)
+
+        # curso + tópico do dono (válidos)
+        self.course = Course.objects.create(user=self.user, title="IA")
+        self.topic = Topic.objects.create(course=self.course, title="CNN")
+
+        # outro usuário + tópico (não pode ser usado pelo dono)
+        other = User.objects.create_user(
+            username='other', email='other@example.com', password='p'
+        )
+        other_course = Course.objects.create(user=other, title="Outro Curso")
+        self.other_topic = Topic.objects.create(course=other_course, title="Outro Tópico")
+
+        self.url = reverse('studychat-ask')
+
+    def test_topic_id_de_outro_usuario_rejeitado_pelo_serializer(self):
+        """Cobre o except do validate_topic_id (tópico não pertence ao usuário)."""
+        data = {
+            "question": "posso usar esse tópico?",
+            "history": [],
+            "topic_id": self.other_topic.id,  # não pertence ao usuário logado
+        }
+        resp = self.client.post(self.url, data, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        # mensagem definida no serializer
+        self.assertIn(
+            "Tópico de contexto não encontrado ou não pertence a você",
+            str(resp.data)
+        )
+
+    @patch("apps.core.services.deepseek_service.responder_pergunta_de_estudo", side_effect=Exception("boom"))
+    def test_excecao_no_servico_retorna_500(self, _mock_ia):
+        """Cobre o bloco except da view, retornando 500 com mensagem de erro."""
+        data = {
+            "question": "O que é backprop?",
+            "history": [],
+            "topic_id": self.topic.id,
+        }
+        resp = self.client.post(self.url, data, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # chave e trecho de mensagem definidos na view
+        self.assertIn("erro", resp.data)
+        self.assertIn("processar sua pergunta", resp.data["erro"])
+
 
 class StudyChatAPITests(APITestCase):
 

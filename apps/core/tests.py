@@ -2,8 +2,8 @@
 
 # apps/core/tests.py
 
-import json
-from unittest.mock import patch, Mock
+import json as _json
+from unittest.mock import patch
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from apps.learning.models import Course, Topic, Subtopic
@@ -11,6 +11,46 @@ from apps.scheduling.models import StudyPlan
 from apps.core.services import deepseek_service as ds
 
 User = get_user_model()
+
+class DeepseekServiceMoreEdges(TestCase):
+    @patch("apps.core.services.deepseek_service.requests.post")
+    def test__safe_post_timeout_returns_safe_error_response(self, mock_post):
+        # Força Timeout para entrar no except do _safe_post
+        import requests
+        mock_post.side_effect = requests.Timeout("boom")
+
+        resp = ds._safe_post("http://example.com", headers={}, json={}, timeout=1)
+
+        # Exercita os métodos do _SafeErrorResponse explicitamente:
+        self.assertEqual(resp.status_code, 503)
+        self.assertFalse(resp.ok)           # @property ok
+        self.assertEqual(resp.json(), {})   # .json()
+        # .raise_for_status() é no-op — não deve levantar
+        resp.raise_for_status()
+
+    @patch("apps.core.services.deepseek_service._safe_post")
+    def test__call_deepseek_api_includes_response_format_when_json_output_true(self, mock_safe_post):
+        # Retorno OK fake
+        class _Resp:
+            def raise_for_status(self): return
+            def json(self): return {"choices": [{"message": {"content": "{}"}}]}
+        mock_safe_post.return_value = _Resp()
+
+        _ = ds._call_deepseek_api("qualquer", is_json_output=True)
+
+        # Verifica que o payload enviado ao _safe_post tem response_format
+        sent = mock_safe_post.call_args.kwargs["json"]
+        assert "response_format" in sent
+        assert sent["response_format"] == {"type": "json_object"}
+
+    @patch("apps.core.services.deepseek_service._call_deepseek_api")
+    def test_distribuir_subtopicos_empty_analysis_returns_empty(self, mock_api_call):
+        # JSON válido, mas com lista vazia -> cobre o `if not subtopicos_analizados: return {}`
+        mock_api_call.return_value = {
+            "choices": [{
+                "message": {"content": _json.dumps({"analise_subtopicos": []})}
+            }]
+        }
 
 
 # -----------------------------------------------------------

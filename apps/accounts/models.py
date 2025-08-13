@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.core.exceptions import ObjectDoesNotExist
 
 class User(AbstractUser):
     """
@@ -61,17 +62,20 @@ class Profile(models.Model):
 
 # --- Sinais para automação ---
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_or_update_user_profile(sender, instance, created, **kwargs):
+@receiver(post_save, sender=User, weak=False)
+def ensure_profile_on_save(sender, instance, created, **kwargs):
     """
-    Cria um Perfil para o usuário automaticamente quando um novo usuário é criado,
-    e salva o perfil existente quando o usuário é salvo.
+    Garante que sempre exista um Profile vinculado ao User.
+    - No create: cria.
+    - No update: se não existir no BANCO, cria.
     """
     if created:
         Profile.objects.create(user=instance)
-    # A linha abaixo pode causar problemas em algumas versões, vamos garantir que ela seja segura
-    if hasattr(instance, 'profile'):
-        instance.profile.save()
-    else:
-        # Se o perfil não foi criado por algum motivo, cria agora
+        return
+
+    # checa no banco para evitar cache do reverso OneToOne
+    if not Profile.objects.filter(user=instance).exists():
         Profile.objects.create(user=instance)
+    else:
+        # nada a fazer
+        pass
