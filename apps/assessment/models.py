@@ -31,7 +31,6 @@ class Quiz(models.Model):
     )
 
     class Meta:
-        app_label = 'apps.assessment'
         ordering = ['-created_at']
         verbose_name = "Quiz"
         verbose_name_plural = "Quizzes"
@@ -82,7 +81,6 @@ class Question(models.Model):
     )
 
     class Meta:
-        app_label = 'apps.assessment'
         ordering = ['id']
         verbose_name = "Pergunta"
         verbose_name_plural = "Perguntas"
@@ -123,7 +121,6 @@ class Attempt(models.Model):
     )
 
     class Meta:
-        app_label = 'apps.assessment'
         ordering = ['-completed_at']
         verbose_name = "Tentativa"
         verbose_name_plural = "Tentativas"
@@ -154,7 +151,6 @@ class Answer(models.Model):
     )
 
     class Meta:
-        app_label = 'apps.assessment'
         unique_together = ('attempt', 'question')
         verbose_name = "Resposta do Usuário"
         verbose_name_plural = "Respostas dos Usuários"

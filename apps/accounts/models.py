@@ -53,7 +53,6 @@ class Profile(models.Model):
     # github_url = models.URLField(blank=True)
 
     class Meta:
-        app_label = 'apps.accounts'
         verbose_name = "Perfil"
         verbose_name_plural = "Perfis"
 

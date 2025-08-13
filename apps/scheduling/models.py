@@ -43,7 +43,6 @@ class StudyPlan(models.Model):
 
     class Meta:
         # Garante que o usuário só pode ter um plano por disciplina por dia da semana.
-        app_label = 'apps.scheduling'
         unique_together = ('user', 'course', 'day_of_week')
         ordering = ['user', 'day_of_week', 'course']
         verbose_name = "Plano de Estudo Semanal"
@@ -99,7 +98,6 @@ class StudyLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        app_label = 'apps.scheduling'
         ordering = ['-date', '-created_at'] # Mostra os logs mais recentes primeiro.
         verbose_name = "Registro de Estudo"
         verbose_name_plural = "Registros de Estudo"

@@ -31,7 +31,6 @@ class Course(models.Model):
     )
 
     class Meta:
-        app_label = 'apps.learning'
         unique_together = ('user', 'title')
         ordering = ['title']
         verbose_name = "Disciplina"
@@ -70,7 +69,6 @@ class Topic(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        app_label = 'apps.learning'
         unique_together = ('course', 'title')
         ordering = ['order', 'title']
         verbose_name = "Tópico"
@@ -117,7 +115,6 @@ class Subtopic(models.Model):
     )
 
     class Meta:
-        app_label = 'apps.learning'
         ordering = ['order', 'title']
         verbose_name = "Subtópico"
         verbose_name_plural = "Subtópicos"
