@@ -3,16 +3,15 @@
 import requests
 import json
 from typing import List, Dict, Any, Optional
-
 from django.conf import settings
 from apps.learning.models import Topic
 from apps.scheduling.models import StudyPlan
 from requests import exceptions as req_exceptions
-
+from requests.exceptions import Timeout
 # --- Configuração Central da API ---
 
 # URL da API do DeepSeek para o modelo de chat
-DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+API_URL = "https://api.deepseek.com/chat/completions"
 
 # Headers padrão para todas as requisições
 # A chave de API é lida das configurações do Django (que a lê do .env )
@@ -54,7 +53,7 @@ def _call_deepseek_api(prompt: str, is_json_output: bool = False) -> Dict[str, A
         payload["response_format"] = {"type": "json_object"}
 
     # Uso da Opção 1
-    response = _safe_post(DEEPSEEK_API_URL, headers=HEADERS, json=payload, timeout=90)
+    response = _safe_post(API_URL, headers=HEADERS, json=payload, timeout=90)
 
     # Evita levantar exceção: se for _SafeErrorResponse, não terá efeitos colaterais
     if hasattr(response, "raise_for_status"):
@@ -117,36 +116,20 @@ def sugerir_subtopicos(topico: Topic) -> List[str]:
         return []
 
 
-def gerar_quiz_completo(topico: Topic, num_faceis: int = 7, num_moderadas: int = 7, num_dificeis: int = 6) -> Optional[Dict[str, Any]]:
-    """
-    Gera um quiz completo (título, descrição e perguntas) sobre um tópico.
-    """
-    total_perguntas = num_faceis + num_moderadas + num_dificeis
-    prompt = (
-        "Aja como um professor universitário que é elaborador de provas. Crie um quiz completo sobre o tópico "
-        f"'{topico.title}' da disciplina '{topico.course.title}'. "
-        f"Gere exatamente {total_perguntas} perguntas de múltipla escolha (A, B, C, D), sendo "
-        f"{num_faceis} fáceis, {num_moderadas} moderadas e {num_dificeis} difíceis. "
-        "Retorne um único objeto JSON com as seguintes chaves: 'quiz_title' (string), "
-        "'quiz_description' (string), e 'questions' (uma lista de objetos). "
-        "Cada objeto de pergunta deve ter as chaves: 'question_text' (string), "
-        "'choices' (um objeto com chaves 'A', 'B', 'C', 'D'), 'correct_answer' (string, a letra da chave correta), "
-        "'difficulty' (string: 'EASY', 'MODERATE', ou 'HARD'), e 'explanation' (string, uma breve justificativa)."
-    )
-
+def gerar_quiz_completo(topic_id, num_easy, num_moderate, num_hard):
     try:
-        api_response = _call_deepseek_api(prompt, is_json_output=True)
-        # Decodifica o conteúdo JSON da resposta
-        content_json = json.loads(api_response['choices'][0]['message']['content'])
-        # Validação básica da estrutura recebida
-        if "quiz_title" in content_json and "questions" in content_json:
-            return content_json
-        else:
-            print("Erro: a resposta da IA não continha as chaves esperadas 'quiz_title' e 'questions'.")
-            return None
-    except (KeyError, IndexError, json.JSONDecodeError, ConnectionError, ValueError) as e:
-        print(f"Erro ao processar geração de quiz: {e}")
-        return None
+        # Sua lógica de chamada à API
+        response = requests.post(
+            API_URL,
+            json={'data': 'seus_dados'},
+            timeout=30  # Timeout de 30 segundos
+        )
+        response.raise_for_status()
+        return response.json()
+    except Timeout:
+        raise Timeout("Request timeout")
+    except requests.RequestException as e:
+        raise Exception(f"Erro na requisição: {str(e)}")
 
 
 def responder_pergunta_de_estudo(pergunta_usuario: str, historico_conversa: List[Dict[str, str]], topico_contexto: Optional[Topic] = None) -> str:

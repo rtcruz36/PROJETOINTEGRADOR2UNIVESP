@@ -3,7 +3,8 @@
 from rest_framework import viewsets, status, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-
+from rest_framework import status
+from django.db import OperationalError
 from .models import Course, Topic, Subtopic
 from .serializers import (
     CourseCreationSerializer, 
@@ -11,7 +12,7 @@ from .serializers import (
     TopicSerializer, 
     SubtopicSerializer
 )
-
+from .serializers import CourseSerializer
 class LearningCreationAPIView(generics.CreateAPIView):
     """
     Endpoint único para o fluxo principal de criação.
@@ -80,3 +81,16 @@ class SubtopicUpdateAPIView(generics.UpdateAPIView):
         """Garante que o usuário só pode atualizar seus próprios subtópicos."""
         return self.queryset.filter(topic__course__user=self.request.user)
 
+class CourseListView(generics.ListAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+
+    def list(self, request, *args, **kwargs):
+        try:
+            response = super().list(request, *args, **kwargs)
+            return response
+        except OperationalError as e:
+            return Response(
+                {"error": "Erro ao acessar os dados"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

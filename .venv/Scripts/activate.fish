@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV 'C:\Users\pc\Desktop\Projetos\ProjetoIntegrador2\.venv'
+set -gx VIRTUAL_ENV 'C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv'
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"Scripts $PATH

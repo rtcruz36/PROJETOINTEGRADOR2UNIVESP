@@ -116,3 +116,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         model = Course
         fields = ['id', 'title', 'description', 'created_at', 'topics']
 
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = '__all__' # ou liste os campos específicos

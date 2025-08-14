@@ -5,38 +5,40 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-
+from django.db import IntegrityError
 from .models import StudyPlan, StudyLog
 from .serializers import StudyPlanSerializer, StudyLogSerializer
 from apps.learning.models import Topic, Subtopic
 from apps.core.services import deepseek_service
+from rest_framework.exceptions import ValidationError
+
+from rest_framework import generics
+from .serializers import StudyPlanFilterSerializer
 
 class StudyPlanViewSet(viewsets.ModelViewSet):
-    """
-    API para gerenciar as Metas de Estudo Semanais (StudyPlan).
-    - GET: /api/scheduling/plans/ (lista todas as metas)
-    - POST: /api/scheduling/plans/ (cria uma nova meta)
-    - PUT/PATCH: /api/scheduling/plans/{id}/ (atualiza uma meta)
-    - DELETE: /api/scheduling/plans/{id}/ (deleta uma meta)
-    """
     queryset = StudyPlan.objects.all()
     serializer_class = StudyPlanSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filtra os planos para retornar apenas os do usuário logado."""
-        user = self.request.user
-        # Permite filtrar por disciplina, ex: /api/scheduling/plans/?course_id=1
-        course_id = self.request.query_params.get('course_id')
-        queryset = self.queryset.filter(user=user)
-        if course_id:
+        queryset = super().get_queryset()
+        
+        # Validar os parâmetros de filtro
+        filter_serializer = StudyPlanFilterSerializer(data=self.request.query_params)
+        filter_serializer.is_valid(raise_exception=True)
+        
+        course_id = filter_serializer.validated_data.get('course_id')
+        if course_id is not None:
             queryset = queryset.filter(course_id=course_id)
-        return queryset.select_related('course')
-
+        
+        return queryset
     def perform_create(self, serializer):
-        """Associa o plano de estudo ao usuário logado ao salvar."""
-        serializer.save(user=self.request.user)
-
+        try:
+            serializer.save(user=self.request.user)
+        except IntegrityError:
+            raise ValidationError({
+                "detail": "Já existe um plano de estudo para este curso neste dia."
+            })
+            
 class GenerateScheduleAPIView(APIView):
     """
     Endpoint para gerar um cronograma de estudo detalhado para um tópico.

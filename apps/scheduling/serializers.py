@@ -62,3 +62,5 @@ class StudyLogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Você só pode registrar estudos para suas próprias disciplinas.")
         return data
 
+class StudyPlanFilterSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField(required=False)
