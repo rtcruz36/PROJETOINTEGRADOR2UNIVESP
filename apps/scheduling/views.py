@@ -18,11 +18,13 @@ from .serializers import StudyPlanFilterSerializer
 class StudyPlanViewSet(viewsets.ModelViewSet):
     queryset = StudyPlan.objects.all()
     serializer_class = StudyPlanSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        # Primeiro filtra por usuário
+        queryset = self.queryset.filter(user=self.request.user)
         
-        # Validar os parâmetros de filtro
+        # Depois aplica filtros adicionais se fornecidos
         filter_serializer = StudyPlanFilterSerializer(data=self.request.query_params)
         filter_serializer.is_valid(raise_exception=True)
         
@@ -31,6 +33,7 @@ class StudyPlanViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(course_id=course_id)
         
         return queryset
+        
     def perform_create(self, serializer):
         try:
             serializer.save(user=self.request.user)
@@ -118,4 +121,3 @@ class StudyLogViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Associa o registro de estudo ao usuário logado."""
         serializer.save(user=self.request.user)
-

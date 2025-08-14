@@ -48,7 +48,7 @@ class GenerateQuizView(APIView):
             if not quiz_data:
                 logger.warning("Serviço gerar_quiz_completo retornou None ou dados inválidos.")
                 return Response(
-                    {"error": "Falha ao gerar o quiz. Serviço indisponível."},
+                    {"error": "Falha ao gerar conteúdo do quiz. Serviço indisponível."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
             

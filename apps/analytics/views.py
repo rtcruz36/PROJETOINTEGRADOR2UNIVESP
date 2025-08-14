@@ -64,7 +64,7 @@ class StudyEffectivenessAPIView(APIView):
         # 2. Combinar os dados manualmente
         analysis_data = []
         for topic in topics_with_study:
-            # Encontrar dados de quiz para este tópico
+            # Encontrar dados de quiz para este tópico - CORREÇÃO AQUI
             quiz_data = topics_with_quiz.filter(id=topic.id).first()
             if quiz_data and topic.total_minutes_studied and quiz_data.average_quiz_score:
                 analysis_data.append({
