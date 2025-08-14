@@ -12,7 +12,7 @@ from apps.accounts.models import User
 from apps.learning.models import Course, Topic
 from apps.scheduling.models import StudyLog
 from apps.assessment.models import Quiz, Attempt
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.contrib.auth import get_user_model
 
 
@@ -24,20 +24,59 @@ class StudyEffectivenessViewEdgeCases(APITestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    @patch("apps.analytics.views.Topic")
+    @patch("apps.analytics.views.Topic.objects")
     @patch("apps.analytics.views.pearsonr")
-    def test_pearsonr_exception_results_in_none(self, mock_pearsonr, mock_topic):
+    def test_pearsonr_exception_results_in_none(self, mock_pearsonr, mock_topic_objects):
         # Arrange: mock do queryset para produzir analysis_data com >= 2 pontos
-        class Obj:
-            def __init__(self, i, title, mins, score):
+        class MockTopic:
+            def __init__(self, i, title, mins, score=None):
                 self.id = i
                 self.title = title
                 self.total_minutes_studied = mins
                 self.average_quiz_score = score
 
-        # Encadear filter().annotate().distinct() retornando uma lista de objetos
-        mock_qs = [Obj(1, "A", 60, 0.7), Obj(2, "B", 120, 0.9)]
-        mock_topic.objects.filter.return_value.annotate.return_value.distinct.return_value = mock_qs
+        # Criar objetos mock com dados válidos para passar pela validação
+        topic1 = MockTopic(1, "A", 60)  # tem minutos estudados
+        topic2 = MockTopic(2, "B", 120)  # tem minutos estudados
+        quiz_topic1 = MockTopic(1, "A", 0, score=70.0)  # tem score válido
+        quiz_topic2 = MockTopic(2, "B", 0, score=90.0)  # tem score válido
+
+        # Mock do primeiro queryset (topics_with_study)
+        mock_study_qs = MagicMock()
+        mock_study_qs.__iter__ = lambda self: iter([topic1, topic2])
+        mock_study_qs.annotate.return_value.distinct.return_value = mock_study_qs
+
+        # Mock do segundo queryset (topics_with_quiz)
+        mock_quiz_qs = MagicMock()
+        
+        # Mock do filter().first() para retornar os dados corretos
+        def mock_filter(id):
+            mock_filtered = MagicMock()
+            if id == 1:
+                mock_filtered.first.return_value = quiz_topic1
+            elif id == 2:
+                mock_filtered.first.return_value = quiz_topic2
+            else:
+                mock_filtered.first.return_value = None
+            return mock_filtered
+        
+        mock_quiz_qs.filter = mock_filter
+        mock_quiz_qs.annotate.return_value.distinct.return_value = mock_quiz_qs
+
+        # Configurar o mock para retornar os querysets corretos
+        def mock_filter_chain(*args, **kwargs):
+            mock_qs = MagicMock()
+            if 'study_logs__isnull' in str(kwargs):
+                # Retorna o queryset de study
+                mock_qs.annotate.return_value.distinct.return_value = mock_study_qs
+                return mock_qs
+            elif 'quizzes__isnull' in str(kwargs):
+                # Retorna o queryset de quiz
+                mock_qs.annotate.return_value.distinct.return_value = mock_quiz_qs
+                return mock_qs
+            return mock_qs
+        
+        mock_topic_objects.filter.side_effect = mock_filter_chain
 
         # Forçar exceção em pearsonr
         mock_pearsonr.side_effect = Exception("boom")
@@ -50,18 +89,58 @@ class StudyEffectivenessViewEdgeCases(APITestCase):
         self.assertIsNone(resp.data["correlation_coefficient"])
         self.assertIn("Não há dados suficientes", resp.data["interpretation"])
         
-    @patch("apps.analytics.views.Topic")
+    @patch("apps.analytics.views.Topic.objects")
     @patch("apps.analytics.views.pearsonr")
-    def test_nan_returns_none(self, mock_pearsonr, mock_topic):
-        class Obj:
-            def __init__(self, i, title, mins, score):
+    def test_nan_returns_none(self, mock_pearsonr, mock_topic_objects):
+        class MockTopic:
+            def __init__(self, i, title, mins, score=None):
                 self.id = i
                 self.title = title
                 self.total_minutes_studied = mins
                 self.average_quiz_score = score
 
-        mock_qs = [Obj(1, "A", 100, 0.8), Obj(2, "B", 100, 0.8)]  # variância zero → NaN
-        mock_topic.objects.filter.return_value.annotate.return_value.distinct.return_value = mock_qs
+        # Criar objetos mock com dados válidos para passar pela validação
+        topic1 = MockTopic(1, "A", 100)  # tem minutos estudados
+        topic2 = MockTopic(2, "B", 100)  # tem minutos estudados  
+        quiz_topic1 = MockTopic(1, "A", 0, score=80.0)  # tem score válido
+        quiz_topic2 = MockTopic(2, "B", 0, score=80.0)  # tem score válido
+
+        # Mock do primeiro queryset (topics_with_study)
+        mock_study_qs = MagicMock()
+        mock_study_qs.__iter__ = lambda self: iter([topic1, topic2])
+        mock_study_qs.annotate.return_value.distinct.return_value = mock_study_qs
+
+        # Mock do segundo queryset (topics_with_quiz)
+        mock_quiz_qs = MagicMock()
+        
+        # Mock do filter().first() para retornar os dados corretos
+        def mock_filter(id):
+            mock_filtered = MagicMock()
+            if id == 1:
+                mock_filtered.first.return_value = quiz_topic1
+            elif id == 2:
+                mock_filtered.first.return_value = quiz_topic2
+            else:
+                mock_filtered.first.return_value = None
+            return mock_filtered
+        
+        mock_quiz_qs.filter = mock_filter
+        mock_quiz_qs.annotate.return_value.distinct.return_value = mock_quiz_qs
+
+        # Configurar o mock para retornar os querysets corretos
+        def mock_filter_chain(*args, **kwargs):
+            mock_qs = MagicMock()
+            if 'study_logs__isnull' in str(kwargs):
+                # Retorna o queryset de study
+                mock_qs.annotate.return_value.distinct.return_value = mock_study_qs
+                return mock_qs
+            elif 'quizzes__isnull' in str(kwargs):
+                # Retorna o queryset de quiz
+                mock_qs.annotate.return_value.distinct.return_value = mock_quiz_qs
+                return mock_qs
+            return mock_qs
+        
+        mock_topic_objects.filter.side_effect = mock_filter_chain
 
         # pearsonr devolve (nan, p)
         import math
@@ -224,4 +303,3 @@ class AnalyticsAPITests(APITestCase):
         self.assertIn("Combinações", included_topics)
         self.assertNotIn("Tópico Sem Quiz", included_topics)
         self.assertNotIn("Tópico Sem Estudo", included_topics)
-

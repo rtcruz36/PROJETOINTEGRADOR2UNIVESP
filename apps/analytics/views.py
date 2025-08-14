@@ -61,11 +61,11 @@ class StudyEffectivenessAPIView(APIView):
             average_quiz_score=Avg('quizzes__attempts__score')  # Calcula a média das pontuações das tentativas
         ).distinct()
 
-        # 2. Combinar os dados manualmente
+        # 2. Combinar os dados manualmente - CORREÇÃO AQUI
         analysis_data = []
         for topic in topics_with_study:
-            # Encontrar dados de quiz para este tópico - CORREÇÃO AQUI
-            quiz_data = topics_with_quiz.filter(id=topic.id).first()
+            # Encontrar dados de quiz para este tópico usando o queryset correto
+            quiz_data = topics_with_quiz.filter(id=topic.id).first()  # topics_with_quiz é um queryset
             if quiz_data and topic.total_minutes_studied and quiz_data.average_quiz_score:
                 analysis_data.append({
                     "topic_id": topic.id,
