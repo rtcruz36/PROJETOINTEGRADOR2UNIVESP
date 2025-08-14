@@ -1,0 +1,144 @@
+RELATÓRIO DETALHADO - TESTES E2E STUDYBOT
+============================================================
+Data/Hora: 2025-08-14 18:33:55
+Python: 3.13.2 (tags/v3.13.2:4f8bb39, Feb  4 2025, 15:23:48) [MSC v.1942 64 bit (AMD64)]
+============================================================
+
+RESUMO:
+Total de testes: 4
+Sucessos: 0
+Falhas: 4
+Tempo total: 17.71s
+
+TESTE 1: Jornada Completa do Estudante
+----------------------------------------
+Status: FALHA
+Tempo: 5.11s
+
+Erro:
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+test_complete_student_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_complete_student_journey)
+Teste principal que simula a jornada completa de um estudante: ... ERROR
+
+======================================================================
+ERROR: test_complete_student_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_complete_student_journey)
+Teste principal que simula a jornada completa de um estudante:
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\tests\e2e\test_complete_study_journey.py", line 28, in setUp
+    print("\U0001f393 INICIANDO JORNADA DE ESTUDO END-TO-END")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pc\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f393' in position 0: character maps to <undefined>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.026s
+
+FAILED (errors=1)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+
+============================================================
+
+TESTE 2: Tratamento de Erros
+----------------------------------------
+Status: FALHA
+Tempo: 3.70s
+
+Erro:
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+test_error_handling_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_error_handling_journey)
+Teste que verifica o tratamento de erros em cenários de falha dos serviços. ... ERROR
+
+======================================================================
+ERROR: test_error_handling_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_error_handling_journey)
+Teste que verifica o tratamento de erros em cenários de falha dos serviços.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\tests\e2e\test_complete_study_journey.py", line 28, in setUp
+    print("\U0001f393 INICIANDO JORNADA DE ESTUDO END-TO-END")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pc\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f393' in position 0: character maps to <undefined>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+FAILED (errors=1)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+
+============================================================
+
+TESTE 3: Isolamento de Dados
+----------------------------------------
+Status: FALHA
+Tempo: 4.51s
+
+Erro:
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+test_data_isolation_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_data_isolation_journey)
+Teste que verifica o isolamento de dados entre usuários. ... ERROR
+
+======================================================================
+ERROR: test_data_isolation_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_data_isolation_journey)
+Teste que verifica o isolamento de dados entre usuários.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\tests\e2e\test_complete_study_journey.py", line 28, in setUp
+    print("\U0001f393 INICIANDO JORNADA DE ESTUDO END-TO-END")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pc\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f393' in position 0: character maps to <undefined>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+FAILED (errors=1)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+
+============================================================
+
+TESTE 4: Performance Básica
+----------------------------------------
+Status: FALHA
+Tempo: 4.39s
+
+Erro:
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+test_performance_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_performance_journey)
+Teste que verifica performance básica do sistema. ... ERROR
+
+======================================================================
+ERROR: test_performance_journey (tests.e2e.test_complete_study_journey.TestCompleteStudyJourney.test_performance_journey)
+Teste que verifica performance básica do sistema.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\tests\e2e\test_complete_study_journey.py", line 28, in setUp
+    print("\U0001f393 INICIANDO JORNADA DE ESTUDO END-TO-END")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pc\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f393' in position 0: character maps to <undefined>
+
+----------------------------------------------------------------------
+Ran 1 test in 0.006s
+
+FAILED (errors=1)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+
+============================================================
+

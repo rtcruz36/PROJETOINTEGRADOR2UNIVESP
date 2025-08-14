@@ -1,0 +1,119 @@
+RELATÓRIO DETALHADO - TESTES E2E STUDYBOT BACKEND
+================================================================================
+Data/Hora: 2025-08-14 18:11:01
+================================================================================
+
+TESTE: Jornada Completa do Estudante
+Status: FALHA
+Tempo: 1.96s
+Erro:
+Traceback (most recent call last):
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\manage.py", line 22, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\manage.py", line 18, in main
+    execute_from_command_line(sys.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\__init__.py", line 442, in execute_from_command_line
+    utility.execute()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\__init__.py", line 436, in execute
+    self.fetch_command(subcommand).run_from_argv(self.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\commands\test.py", line 24, in run_from_argv
+    super().run_from_argv(argv)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\base.py", line 416, in run_from_argv
+    self.execute(*args, **cmd_options)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\base.py", line 460, in execute
+    output = self.handle(*args, **options)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\commands\test.py", line 63, in handle
+    failures = test_runner.run_tests(test_labels)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\test\runner.py", line 1085, in run_tests
+    suite = self.build_suite(test_labels)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\test\runner.py", line 940, in build_suite
+    tests = self.load_tests_for_label(label, discover_kwargs)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\test\runner.py", line 898, in load_tests_for_label
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\pc\AppData\Local\Programs\Python\Python313\Lib\unittest\loader.py", line 192, in loadTestsFromName
+    test = obj()
+TypeError: TestCompleteStudyJourney.test_complete_student_journey() missing 1 required positional argument: 'self'
+
+----------------------------------------
+
+TESTE: Tratamento de Erros
+Status: FALHA
+Tempo: 2.22s
+Erro:
+Traceback (most recent call last):
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\manage.py", line 22, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\manage.py", line 18, in main
+    execute_from_command_line(sys.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\__init__.py", line 442, in execute_from_command_line
+    utility.execute()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\__init__.py", line 436, in execute
+    self.fetch_command(subcommand).run_from_argv(self.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\commands\test.py", line 24, in run_from_argv
+    super().run_from_argv(argv)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\base.py", line 416, in run_from_argv
+    self.execute(*args, **cmd_options)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\base.py", line 460, in execute
+    output = self.handle(*args, **options)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\core\management\commands\test.py", line 63, in handle
+    failures = test_runner.run_tests(test_labels)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\test\runner.py", line 1085, in run_tests
+    suite = self.build_suite(test_labels)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\test\runner.py", line 940, in build_suite
+    tests = self.load_tests_for_label(label, discover_kwargs)
+  File "C:\Users\pc\Desktop\Backup PI\ProjetoIntegrador2\.venv\Lib\site-packages\django\test\runner.py", line 898, in load_tests_for_label
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\pc\AppData\Local\Programs\Python\Python313\Lib\unittest\loader.py", line 192, in loadTestsFromName
+    test = obj()
+TypeError: TestCompleteStudyJourney.test_error_handling_journey() missing 1 required positional argument: 'self'
+
+----------------------------------------
+
+TESTE: Isolamento de Dados
+Status: FALHA
+Tempo: 3.35s
+Erro:
+test_data_isolation_journey (unittest.loader._FailedTest.test_data_isolation_journey) ... ERROR
+
+======================================================================
+ERROR: test_data_isolation_journey (unittest.loader._FailedTest.test_data_isolation_journey)
+----------------------------------------------------------------------
+AttributeError: type object 'TestCompleteStudyJourney' has no attribute 'test_data_isolation_journey'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)
+
+----------------------------------------
+
+TESTE: Performance
+Status: FALHA
+Tempo: 3.30s
+Erro:
+test_performance_journey (unittest.loader._FailedTest.test_performance_journey) ... ERROR
+
+======================================================================
+ERROR: test_performance_journey (unittest.loader._FailedTest.test_performance_journey)
+----------------------------------------------------------------------
+AttributeError: type object 'TestCompleteStudyJourney' has no attribute 'test_performance_journey'. Did you mean: 'test_error_handling_journey'?
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+----------------------------------------
+

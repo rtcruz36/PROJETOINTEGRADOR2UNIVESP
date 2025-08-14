@@ -1,0 +1,51 @@
+RELATÓRIO DE TESTES END-TO-END - STUDYPLATFORM
+============================================================
+Data/Hora: 2025-08-14 19:36:17
+URL Base: http://localhost:8000
+Duração total: 22.70 segundos
+Testes executados: 22
+Sucessos: 22
+Falhas: 0
+Taxa de sucesso: 100.0%
+
+============================================================
+DETALHES DOS TESTES
+============================================================
+test_01_user_registration: PASSOU (3.33s)
+test_02_user_login: PASSOU (2.23s)
+test_03_profile_access: PASSOU (0.35s)
+test_04_create_study_plan: PASSOU (3.75s)
+test_05_list_courses: PASSOU (0.05s)
+test_06_create_study_schedule: PASSOU (0.24s)
+test_07_generate_schedule: PASSOU (0.08s)
+test_08_generate_quiz: PASSOU (1.62s)
+test_09_submit_quiz_attempt: PASSOU (0.00s)
+test_10_record_study_logs: PASSOU (0.05s)
+test_11_study_chat: PASSOU (1.13s)
+test_12_analytics: PASSOU (0.02s)
+test_13_list_all_resources: PASSOU (0.07s)
+test_14_update_profile: PASSOU (0.02s)
+test_15_mark_subtopic_completed: PASSOU (0.01s)
+test_16_token_refresh: PASSOU (0.01s)
+test_17_unauthorized_access: PASSOU (0.01s)
+test_18_data_persistence: PASSOU (0.11s)
+test_19_error_handling: PASSOU (0.18s)
+test_20_comprehensive_validation: PASSOU (2.39s)
+test_21_performance_basic: PASSOU (0.38s)
+test_22_edge_cases: PASSOU (0.04s)
+
+============================================================
+RECURSOS CRIADOS DURANTE OS TESTES
+============================================================
+user_id: 3
+course_id: 3
+topic_id: 3
+study_plan_ids: [4, 5, 6]
+study_log_ids: [3, 4]
+
+============================================================
+ESTATÍSTICAS DETALHADAS
+============================================================
+Tempo médio por teste: 1.03s
+Teste mais lento: test_04_create_study_plan (3.75s)
+Teste mais rápido: test_09_submit_quiz_attempt (0.00s)

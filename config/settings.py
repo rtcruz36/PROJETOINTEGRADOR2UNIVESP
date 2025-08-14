@@ -182,3 +182,21 @@ SECRET_KEY = config('SECRET_KEY')
 DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY')
 
 AUTH_USER_MODEL = 'accounts.User'
+
+
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:'  # Banco em memória para testes mais rápidos
+        }
+    }
+    
+    # Desabilitar migrações desnecessárias em testes
+    class DisableMigrations:
+        def __contains__(self, item):
+            return True
+        def __getitem__(self, item):
+            return None
+    
+    MIGRATION_MODULES = DisableMigrations()
