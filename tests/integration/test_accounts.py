@@ -75,6 +75,18 @@ class TestUserAuthentication:
 class TestUserProfile:
     """Testes do perfil do usuário."""
     
+    def test_user_and_profile_string_representations(self, user):
+        """Testa representação string do usuário e perfil."""
+        # Testar User.__str__
+        assert str(user) == user.email
+        assert str(user) == 'test@example.com'
+    
+        # Testar Profile.__str__
+        profile = user.profile
+        expected_profile = f"Perfil de {user.username}"
+        assert str(profile) == expected_profile
+        assert str(profile) == "Perfil de testuser"
+    
     def test_get_user_profile(self, authenticated_client, user):
         """Testa recuperação do perfil do usuário."""
         url = reverse('user-profile')
@@ -163,3 +175,4 @@ class TestUserDataIsolation:
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert 'email' in response.data
+        

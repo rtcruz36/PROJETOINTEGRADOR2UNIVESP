@@ -1,16 +1,13 @@
-# apps/analytics/views.py
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
 from django.db.models import Sum, Avg
-
 import pandas as pd
 from scipy.stats import pearsonr
 
 from apps.learning.models import Topic
 from .serializers import CorrelationAnalyticsSerializer
+
 
 def get_correlation_interpretation(coefficient):
     """Função auxiliar para traduzir o valor numérico em texto."""
@@ -45,30 +42,37 @@ class StudyEffectivenessAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        user = request.user
-        
-        # 1. Buscar todos os tópicos do usuário que têm tanto registros de estudo quanto tentativas de quiz.
-        # Usamos anotações para pré-calcular os agregados no banco de dados, o que é muito eficiente.
-        topics_with_data = Topic.objects.filter(
-            course__user=user,
-            study_logs__isnull=False,  # Garante que há pelo menos um log de estudo
-            quizzes__attempts__isnull=False # Garante que há pelo menos uma tentativa de quiz
-        ).annotate(
-            total_minutes_studied=Sum('study_logs__minutes_studied'),
-            average_quiz_score=Avg('quizzes__attempts__score')
-        ).distinct() # distinct() é importante por causa dos joins múltiplos
+        # Atribuir o usuário autenticado como um atributo de instância
+        self.user = request.user
 
-        # 2. Preparar os dados para a análise
-        # Filtramos tópicos onde os dados agregados não são nulos
-        analysis_data = [
-            {
-                "topic_id": topic.id,
-                "topic_title": topic.title,
-                "total_minutes_studied": topic.total_minutes_studied,
-                "average_quiz_score": round(topic.average_quiz_score, 2)
-            }
-            for topic in topics_with_data if topic.total_minutes_studied is not None and topic.average_quiz_score is not None
-        ]
+        # 1. Calcular agregações separadamente para evitar JOINs múltiplos
+        topics_with_study = Topic.objects.filter(
+            course__user=self.user,
+            study_logs__isnull=False
+        ).annotate(
+            total_minutes_studied=Sum('study_logs__minutes_studied')
+        ).distinct()
+
+        topics_with_quiz = Topic.objects.filter(
+            course__user=self.user,
+            quizzes__isnull=False,
+            quizzes__attempts__isnull=False  # Garante que haja tentativas registradas
+        ).annotate(
+            average_quiz_score=Avg('quizzes__attempts__score')  # Calcula a média das pontuações das tentativas
+        ).distinct()
+
+        # 2. Combinar os dados manualmente
+        analysis_data = []
+        for topic in topics_with_study:
+            # Encontrar dados de quiz para este tópico
+            quiz_data = topics_with_quiz.filter(id=topic.id).first()
+            if quiz_data and topic.total_minutes_studied and quiz_data.average_quiz_score:
+                analysis_data.append({
+                    "topic_id": topic.id,
+                    "topic_title": topic.title,
+                    "total_minutes_studied": topic.total_minutes_studied,
+                    "average_quiz_score": round(quiz_data.average_quiz_score, 2)
+                })
 
         # Se não tivermos pelo menos 2 pontos de dados, não podemos calcular a correlação
         if len(analysis_data) < 2:
@@ -84,11 +88,8 @@ class StudyEffectivenessAPIView(APIView):
         # 3. Usar Pandas e SciPy para o cálculo
         df = pd.DataFrame(analysis_data)
         
-        # pearsonr retorna (coeficiente, p-valor). Só precisamos do coeficiente.
-        # O p-valor seria útil para análises estatísticas mais rigorosas.
         try:
             correlation_coefficient, _ = pearsonr(df['total_minutes_studied'], df['average_quiz_score'])
-            # Se o resultado for NaN (Not a Number), o que pode acontecer se todos os valores forem iguais, tratamos como nulo.
             if pd.isna(correlation_coefficient):
                 correlation_coefficient = None
         except Exception:
@@ -99,9 +100,8 @@ class StudyEffectivenessAPIView(APIView):
             "correlation_coefficient": correlation_coefficient,
             "interpretation": get_correlation_interpretation(correlation_coefficient),
             "data_points": len(df),
-            "topic_data": df.to_dict('records') # Converte o DataFrame de volta para uma lista de dicionários
+            "topic_data": df.to_dict('records')
         }
 
         serializer = CorrelationAnalyticsSerializer(result)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
+        return Response(serializer.data)

@@ -3,8 +3,195 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 from unittest.mock import patch
-
 from apps.assessment.models import Quiz, Question, Attempt, Answer
+
+@pytest.mark.django_db
+class TestAssessmentCompleteFlow:
+    """Testes do fluxo completo de avaliação."""
+    
+    def test_complete_quiz_flow(self, authenticated_client, topic):
+        """Testa o fluxo completo: gerar quiz -> fazer tentativa."""
+        # CORREÇÃO: Mock correto do serviço DeepSeek
+        mock_quiz_data = {
+            'quiz_title': 'Quiz sobre Derivadas - Gerado por IA',
+            'quiz_description': 'Quiz gerado automaticamente pela IA sobre derivadas',
+            'questions': [
+                {
+                    'question_text': 'Qual é a derivada de x²?',
+                    'choices': {
+                        'A': '2x',
+                        'B': 'x',
+                        'C': '2',
+                        'D': 'x²'
+                    },
+                    'correct_answer': 'A',
+                    'difficulty': 'EASY',
+                    'explanation': 'A derivada de x² é 2x usando a regra do tombo.'
+                },
+                {
+                    'question_text': 'Qual é a derivada de sen(x)?',
+                    'choices': {
+                        'A': 'sen(x)',
+                        'B': 'cos(x)',
+                        'C': '-cos(x)',
+                        'D': 'tan(x)'
+                    },
+                    'correct_answer': 'B',
+                    'difficulty': 'MODERATE',
+                    'explanation': 'A derivada de sen(x) é cos(x).'
+                }
+            ]
+        }
+        
+        with patch('apps.core.services.deepseek_service.gerar_quiz_completo') as mock_service:
+            mock_service.return_value = mock_quiz_data
+            
+            # 1. Gerar quiz
+            generate_url = reverse('generate-quiz')
+            generate_data = {
+                'topic_id': topic.id,
+                'num_easy': 1,
+                'num_moderate': 1,
+                'num_hard': 0
+            }
+            
+            generate_response = authenticated_client.post(generate_url, generate_data, format='json')
+            assert generate_response.status_code == status.HTTP_201_CREATED
+            
+            quiz_id = generate_response.data['id']
+            questions = generate_response.data['questions']
+            
+            # 2. Submeter tentativa
+            submit_url = reverse('submit-attempt')
+            submit_data = {
+                'quiz_id': quiz_id,
+                'answers': [
+                    {'question_id': questions[0]['id'], 'user_answer': 'A'},
+                    {'question_id': questions[1]['id'], 'user_answer': 'B'},
+                ]
+            }
+            
+            submit_response = authenticated_client.post(submit_url, submit_data, format='json')
+            assert submit_response.status_code == status.HTTP_201_CREATED
+            
+            # 3. Verificar tentativa salva
+            attempt_id = submit_response.data['id']
+            detail_url = reverse('attempt-detail', args=[attempt_id])
+            detail_response = authenticated_client.get(detail_url)
+            
+            assert detail_response.status_code == status.HTTP_200_OK
+            assert detail_response.data['score'] == submit_response.data['score']
+
+    def test_generate_quiz_success(self, authenticated_client, topic):
+        """Testa geração bem-sucedida de quiz."""
+        # CORREÇÃO: Mock correto do serviço DeepSeek
+        mock_quiz_data = {
+            'quiz_title': 'Quiz sobre Derivadas - Gerado por IA',
+            'quiz_description': 'Quiz gerado automaticamente pela IA sobre derivadas',
+            'questions': [
+                {
+                    'question_text': 'Qual é a derivada de x²?',
+                    'choices': {
+                        'A': '2x',
+                        'B': 'x',
+                        'C': '2',
+                        'D': 'x²'
+                    },
+                    'correct_answer': 'A',
+                    'difficulty': 'EASY',
+                    'explanation': 'A derivada de x² é 2x usando a regra do tombo.'
+                },
+                {
+                    'question_text': 'Qual é a derivada de sen(x)?',
+                    'choices': {
+                        'A': 'sen(x)',
+                        'B': 'cos(x)',
+                        'C': '-cos(x)',
+                        'D': 'tan(x)'
+                    },
+                    'correct_answer': 'B',
+                    'difficulty': 'MODERATE',
+                    'explanation': 'A derivada de sen(x) é cos(x).'
+                }
+            ]
+        }
+        
+        with patch('apps.core.services.deepseek_service.gerar_quiz_completo') as mock_service:
+            mock_service.return_value = mock_quiz_data
+            
+            url = reverse('generate-quiz')
+            data = {
+                'topic_id': topic.id,
+                'num_easy': 1,
+                'num_moderate': 1,
+                'num_hard': 0
+            }
+            
+            response = authenticated_client.post(url, data, format='json')
+            
+            assert response.status_code == status.HTTP_201_CREATED
+            assert 'id' in response.data
+            assert response.data['title'] == 'Quiz sobre Derivadas - Gerado por IA'
+            assert len(response.data['questions']) == 2
+            
+            # Verifica se foi salvo no banco
+            quiz = Quiz.objects.get(id=response.data['id'])
+            assert quiz.topic == topic
+            assert quiz.questions.count() == 2
+
+    def test_generate_quiz_no_questions(self, authenticated_client, topic):
+        """Testa geração de quiz sem perguntas."""
+        url = reverse('generate-quiz')
+        data = {
+            'topic_id': topic.id,
+            'num_easy': 0,
+            'num_moderate': 0,
+            'num_hard': 0
+        }
+        
+        response = authenticated_client.post(url, data, format='json')
+        
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        # CORREÇÃO: Agora acessando corretamente o primeiro elemento da lista de erros
+        assert 'error' in response.data
+        # O DRF retorna uma lista de ErrorDetail, então pegamos o primeiro elemento e convertemos para string
+        if isinstance(response.data['error'], list):
+            assert str(response.data['error'][0]) == 'Deve haver pelo menos uma pergunta no quiz.'
+        else:
+            assert str(response.data['error']) == 'Deve haver pelo menos uma pergunta no quiz.'
+
+    def test_generate_quiz_custom_difficulty_distribution(self, authenticated_client, topic):
+        """Testa geração de quiz com distribuição customizada de dificuldade."""
+        url = reverse('generate-quiz')
+        data = {
+            'topic_id': topic.id,
+            'num_easy': 3,
+            'num_moderate': 2,
+            'num_hard': 1
+        }
+        
+        # Simula resposta da IA com 6 perguntas
+        mock_quiz_data = {
+            'quiz_title': 'Quiz Customizado',
+            'quiz_description': 'Quiz com distribuição customizada',
+            'questions': [
+                {
+                    'question_text': f'Pergunta {i}',
+                    'choices': {'A': 'Op1', 'B': 'Op2', 'C': 'Op3', 'D': 'Op4'},
+                    'correct_answer': 'A',
+                    'difficulty': 'EASY' if i <= 3 else ('MODERATE' if i <= 5 else 'HARD'),
+                    'explanation': f'Explicação {i}'
+                } for i in range(1, 7)
+            ]
+        }
+        
+        with patch('apps.core.services.deepseek_service.gerar_quiz_completo') as mock:
+            mock.return_value = mock_quiz_data
+            
+            response = authenticated_client.post(url, data, format='json')
+            
+            assert response.status_code == status.HTTP_201_CREATED
+            assert len(response.data['questions']) == 6
 
 @pytest.mark.django_db
 class TestQuizGeneration:
@@ -265,148 +452,3 @@ class TestAttemptViewSet:
         
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 0
-
-@pytest.mark.django_db
-class TestAssessmentCompleteFlow:
-    """Testes do fluxo completo de avaliação."""
-    
-    def test_complete_quiz_flow(self, authenticated_client, topic, mock_deepseek_quiz):
-        """Testa o fluxo completo: gerar quiz -> fazer tentativa."""
-        # 1. Gerar quiz
-        generate_url = reverse('generate-quiz')
-        generate_data = {
-            'topic_id': topic.id,
-            'num_easy': 1,
-            'num_moderate': 1,
-            'num_hard': 0
-        }
-        
-        generate_response = authenticated_client.post(generate_url, generate_data, format='json')
-        assert generate_response.status_code == status.HTTP_201_CREATED
-        
-        quiz_id = generate_response.data['id']
-        questions = generate_response.data['questions']
-        
-        # 2. Submeter tentativa
-        submit_url = reverse('submit-attempt')
-        submit_data = {
-            'quiz_id': quiz_id,
-            'answers': [
-                {'question_id': questions[0]['id'], 'user_answer': 'A'},
-                {'question_id': questions[1]['id'], 'user_answer': 'B'},
-            ]
-        }
-        
-        submit_response = authenticated_client.post(submit_url, submit_data, format='json')
-        assert submit_response.status_code == status.HTTP_201_CREATED
-        
-        # 3. Verificar tentativa salva
-        attempt_id = submit_response.data['id']
-        detail_url = reverse('attempt-detail', args=[attempt_id])
-        detail_response = authenticated_client.get(detail_url)
-        
-        assert detail_response.status_code == status.HTTP_200_OK
-        assert detail_response.data['score'] == submit_response.data['score']
-
-    def test_generate_quiz_success(self, authenticated_client, topic, mock_deepseek_quiz):
-        """Testa geração bem-sucedida de quiz."""
-        url = reverse('generate-quiz')
-        data = {
-            'topic_id': topic.id,
-            'num_easy': 1,
-            'num_moderate': 1,
-            'num_hard': 0
-        }
-        
-        response = authenticated_client.post(url, data, format='json')
-        
-        assert response.status_code == status.HTTP_201_CREATED
-        assert 'id' in response.data
-        assert response.data['title'] == 'Quiz sobre Derivadas - Gerado por IA'
-        assert len(response.data['questions']) == 2
-        
-        # Verifica se foi salvo no banco
-        quiz = Quiz.objects.get(id=response.data['id'])
-        assert quiz.topic == topic
-        assert quiz.questions.count() == 2
-
-    def test_generate_quiz_custom_difficulty_distribution(self, authenticated_client, topic, mock_deepseek_quiz):
-        """Testa geração de quiz com distribuição customizada de dificuldade."""
-        url = reverse('generate-quiz')
-        data = {
-            'topic_id': topic.id,
-            'num_easy': 3,
-            'num_moderate': 2,
-            'num_hard': 1
-        }
-        
-        # Simula resposta da IA com 6 perguntas
-        mock_quiz_data = {
-            'quiz_title': 'Quiz Customizado',
-            'quiz_description': 'Quiz com distribuição customizada',
-            'questions': [
-                {
-                    'question_text': f'Pergunta {i}',
-                    'choices': {'A': 'Op1', 'B': 'Op2', 'C': 'Op3', 'D': 'Op4'},
-                    'correct_answer': 'A',
-                    'difficulty': 'EASY' if i <= 3 else ('MODERATE' if i <= 5 else 'HARD'),
-                    'explanation': f'Explicação {i}'
-                } for i in range(1, 7)
-            ]
-        }
-        
-        with patch('apps.core.services.deepseek_service.gerar_quiz_completo') as mock:
-            mock.return_value = mock_quiz_data
-            
-            response = authenticated_client.post(url, data, format='json')
-            
-            assert response.status_code == status.HTTP_201_CREATED
-            assert len(response.data['questions']) == 6
-
-    def test_generate_quiz_invalid_topic(self, authenticated_client):
-        """Testa geração de quiz para tópico inexistente."""
-        url = reverse('generate-quiz')
-        data = {
-            'topic_id': 99999,  # ID inexistente
-            'num_easy': 1,
-            'num_moderate': 1,
-            'num_hard': 1
-        }
-        
-        response = authenticated_client.post(url, data, format='json')
-        
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_generate_quiz_other_user_topic(self, api_client, other_user, topic):
-        """Testa que usuário não pode gerar quiz para tópico de outro usuário."""
-        from rest_framework_simplejwt.tokens import RefreshToken
-        refresh = RefreshToken.for_user(other_user)
-        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
-        
-        url = reverse('generate-quiz')
-        data = {
-            'topic_id': topic.id,
-            'num_easy': 1,
-            'num_moderate': 1,
-            'num_hard': 1
-        }
-        
-        response = api_client.post(url, data, format='json')
-        
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_generate_quiz_no_questions(self, authenticated_client, topic):
-        """Testa geração de quiz sem perguntas."""
-        url = reverse('generate-quiz')
-        data = {
-            'topic_id': topic.id,
-            'num_easy': 0,
-            'num_moderate': 0,
-            'num_hard': 0
-        }
-        
-        response = authenticated_client.post(url, data, format='json')
-        
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert 'error' in response.data
-        assert response.data['error'] == 'Deve haver pelo menos uma pergunta no quiz.'

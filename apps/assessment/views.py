@@ -15,6 +15,8 @@ from .serializers import (
     AttemptSubmissionSerializer
 )
 from apps.core.services import deepseek_service
+from apps.learning.models import Topic
+
 
 class QuizGenerationAPIView(generics.GenericAPIView):
     """
@@ -24,27 +26,55 @@ class QuizGenerationAPIView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = QuizGenerationSerializer
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
+        # 1. Validar dados de entrada
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        topic = serializer.validated_data['topic_id'] # Agora é o objeto Topic
-        num_faceis = serializer.validated_data['num_easy']
-        num_moderadas = serializer.validated_data['num_moderate']
-        num_dificeis = serializer.validated_data['num_hard']
+        if not serializer.is_valid():
+            # CORREÇÃO: Tratar o erro de validação para manter formato consistente
+            errors = serializer.errors
+            if 'non_field_errors' in errors:
+                # Se for erro de validação customizada, pegar a mensagem
+                return Response(
+                    {'error': errors['non_field_errors'][0]}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Extrair dados validados
+        data = serializer.validated_data
+        topic_id = data['topic_id']
+        num_easy = data['num_easy']
+        num_moderate = data['num_moderate']
+        num_hard = data['num_hard']
+
+        # 3. Verificar se o tópico existe e pertence ao usuário
+        try:
+            topic = Topic.objects.get(
+                id=topic_id, 
+                course__user=request.user
+            )
+        except Topic.DoesNotExist:
+            return Response(
+                {'error': 'Tópico não encontrado ou não pertence ao usuário.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            # 1. Chamar o serviço da IA para obter o conteúdo do quiz
+            # 4. Chamar o serviço da IA para obter o conteúdo do quiz
             quiz_data = deepseek_service.gerar_quiz_completo(
                 topico=topic,
-                num_faceis=num_faceis,
-                num_moderadas=num_moderadas,
-                num_dificeis=num_dificeis
+                num_faceis=num_easy,
+                num_moderadas=num_moderate,
+                num_dificeis=num_hard
             )
+            
             if not quiz_data:
-                return Response({"error": "Falha ao gerar conteúdo do quiz com a IA."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                return Response(
+                    {'error': 'Não foi possível gerar o quiz. Tente novamente.'}, 
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
 
-            # 2. Salvar o quiz e suas perguntas no banco de dados em uma transação
+            # 5. Salvar o quiz e suas perguntas no banco de dados em uma transação
             with transaction.atomic():
                 # Cria o objeto Quiz
                 new_quiz = Quiz.objects.create(
@@ -69,13 +99,15 @@ class QuizGenerationAPIView(generics.GenericAPIView):
                     )
                 Question.objects.bulk_create(questions_to_create)
 
-            # 3. Retornar o quiz recém-criado
+            # 6. Retornar o quiz recém-criado
             response_serializer = QuizDetailSerializer(new_quiz)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return Response({"error": f"Ocorreu um erro inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+            return Response(
+                {"error": f"Ocorreu um erro inesperado: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class SubmitAttemptAPIView(generics.GenericAPIView):
     """
@@ -86,54 +118,88 @@ class SubmitAttemptAPIView(generics.GenericAPIView):
     serializer_class = AttemptSubmissionSerializer
 
     def post(self, request, *args, **kwargs):
+        # 1. Validar dados de entrada
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        quiz = serializer.validated_data['quiz_id'] # Objeto Quiz
+        # 2. Extrair dados validados
+        quiz_id = serializer.validated_data['quiz_id']
         user_answers = serializer.validated_data['answers']
         user = request.user
 
-        # Pega todas as perguntas do quiz de uma vez para evitar múltiplas queries
+        # 3. Verificar se o quiz existe e o usuário tem acesso
+        try:
+            quiz = Quiz.objects.get(
+                id=quiz_id,
+                topic__course__user=user
+            )
+        except Quiz.DoesNotExist:
+            return Response(
+                {'error': 'Quiz não encontrado ou não pertence ao usuário.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 4. Validar se há respostas
+        if not user_answers:
+            return Response(
+                {'error': 'É necessário fornecer pelo menos uma resposta.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 5. Pega todas as perguntas do quiz de uma vez para evitar múltiplas queries
         questions = {q.id: q for q in quiz.questions.all()}
         
         correct_count = 0
         answers_to_create = []
 
-        with transaction.atomic():
-            # Cria o objeto da Tentativa (Attempt)
-            attempt = Attempt.objects.create(user=user, quiz=quiz)
+        try:
+            with transaction.atomic():
+                # 6. Cria o objeto da Tentativa (Attempt)
+                attempt = Attempt.objects.create(user=user, quiz=quiz)
 
-            for answer_data in user_answers:
-                question_id = answer_data['question_id']
-                question = questions.get(question_id)
+                for answer_data in user_answers:
+                    question_id = answer_data['question_id']
+                    question = questions.get(question_id)
 
-                if not question: continue # Ignora respostas para perguntas que não são deste quiz
+                    if not question: 
+                        continue  # Ignora respostas para perguntas que não são deste quiz
 
-                is_correct = (str(answer_data['user_answer']).upper() == str(question.correct_answer).upper())
-                if is_correct:
-                    correct_count += 1
-                
-                answers_to_create.append(
-                    Answer(
-                        attempt=attempt,
-                        question=question,
-                        user_answer=answer_data['user_answer'],
-                        is_correct=is_correct
+                    is_correct = (
+                        str(answer_data['user_answer']).upper() == 
+                        str(question.correct_answer).upper()
                     )
-                )
-            
-            # Salva todas as respostas de uma vez
-            Answer.objects.bulk_create(answers_to_create)
+                    if is_correct:
+                        correct_count += 1
+                    
+                    answers_to_create.append(
+                        Answer(
+                            attempt=attempt,
+                            question=question,
+                            user_answer=answer_data['user_answer'],
+                            is_correct=is_correct
+                        )
+                    )
+                
+                # 7. Salva todas as respostas de uma vez
+                Answer.objects.bulk_create(answers_to_create)
 
-            # Atualiza a pontuação da tentativa
-            total_questions = len(questions)
-            attempt.correct_answers_count = correct_count
-            attempt.incorrect_answers_count = total_questions - correct_count
-            attempt.score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
-            attempt.save()
+                # 8. Atualiza a pontuação da tentativa
+                total_questions = len(questions)
+                attempt.correct_answers_count = correct_count
+                attempt.incorrect_answers_count = total_questions - correct_count
+                attempt.score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
+                attempt.save()
 
-        response_serializer = AttemptDetailSerializer(attempt)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+            # 9. Retorna a tentativa criada
+            response_serializer = AttemptDetailSerializer(attempt)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Erro ao processar tentativa: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class QuizViewSet(viewsets.ReadOnlyModelViewSet):
@@ -148,7 +214,9 @@ class QuizViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         """Filtra para mostrar apenas quizzes de tópicos do usuário."""
-        return self.queryset.filter(topic__course__user=self.request.user).select_related('topic').prefetch_related('questions')
+        return self.queryset.filter(
+            topic__course__user=self.request.user
+        ).select_related('topic').prefetch_related('questions')
 
 
 class AttemptViewSet(viewsets.ReadOnlyModelViewSet):
@@ -163,5 +231,7 @@ class AttemptViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         """Filtra para mostrar apenas as tentativas do usuário logado."""
-        return self.queryset.filter(user=self.request.user).select_related('quiz').prefetch_related('answers__question')
+        return self.queryset.filter(
+            user=self.request.user
+        ).select_related('quiz').prefetch_related('answers__question')
 

@@ -7,7 +7,7 @@ from django.test.utils import override_settings
 from rest_framework import status
 from unittest.mock import patch
 import time
-
+from datetime import date,datetime
 from apps.learning.models import Course, Topic, Subtopic
 from apps.scheduling.models import StudyLog, StudyPlan
 from apps.assessment.models import Quiz, Question, Attempt
@@ -124,6 +124,7 @@ class TestPerformance:
         # Deve ser executado rapidamente mesmo com muitos dados
         execution_time = end_time - start_time
         assert execution_time < 2.0, f"Análise muito lenta: {execution_time}s"
+        date=date.today(),
 
 @pytest.mark.django_db 
 class TestEdgeCases:
