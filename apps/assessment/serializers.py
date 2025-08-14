@@ -64,18 +64,18 @@ class QuizGenerationSerializer(serializers.Serializer):
     num_hard = serializers.IntegerField(default=6, min_value=0)
 
     def validate_topic_id(self, value):
-        """Verifica se o Topic existe (validação básica)."""
+        """Verifica se o Topic existe e pertence ao usuário."""
         try:
-            Topic.objects.get(id=value)
-            return value
+            user = self.context['request'].user
+            topic = Topic.objects.get(id=value, course__user=user)
+            return topic  # Retorna o objeto Topic, não o ID
         except Topic.DoesNotExist:
-            raise serializers.ValidationError("Tópico não encontrado.")
+            raise serializers.ValidationError("Tópico não encontrado ou não pertence a você.")
 
     def validate(self, data):
         """Validação customizada para garantir pelo menos uma pergunta."""
         total_questions = data['num_easy'] + data['num_moderate'] + data['num_hard']
         if total_questions == 0:
-            # CORREÇÃO: Usar raise_exception com formato específico para ter 'error' na resposta
             raise serializers.ValidationError({
                 'error': 'Deve haver pelo menos uma pergunta no quiz.'
             })
@@ -97,7 +97,7 @@ class AttemptSubmissionSerializer(serializers.Serializer):
         """Verifica se o Quiz existe e retorna o ID (não o objeto)."""
         try:
             Quiz.objects.get(id=value)
-            return value  # CORREÇÃO: retorna o ID, não o objeto
+            return value  # Retorna o ID, não o objeto
         except Quiz.DoesNotExist:
             raise serializers.ValidationError("Quiz não encontrado.")
 

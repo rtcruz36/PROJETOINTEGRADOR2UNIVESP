@@ -8,6 +8,7 @@ from apps.learning.models import Topic
 from apps.scheduling.models import StudyPlan
 from requests import exceptions as req_exceptions
 from requests.exceptions import Timeout
+
 # --- Configuração Central da API ---
 
 # URL da API do DeepSeek para o modelo de chat
@@ -22,7 +23,6 @@ HEADERS = {
 
 # --- Função Auxiliar Genérica para Chamadas à API ---
 
-
 def _safe_post(url: str, *, headers: Dict[str, str], json: Dict[str, Any], timeout: int):
     """
     Envolve requests.post e, em caso de erro de rede, retorna um Response 'fake'
@@ -34,8 +34,6 @@ def _safe_post(url: str, *, headers: Dict[str, str], json: Dict[str, Any], timeo
         # Mantenha logs compatíveis com os que seus testes já esperam/verificam
         print("Erro ao analisar subtópicos com a IA: Erro de rede")
         return _SafeErrorResponse()
-    
-    
 
 def _call_deepseek_api(prompt: str, is_json_output: bool = False) -> Dict[str, Any]:
     """
@@ -60,7 +58,7 @@ def _call_deepseek_api(prompt: str, is_json_output: bool = False) -> Dict[str, A
         try:
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            # Mantém comportamento “silencioso”: retorna {} para cair nos ramos de KeyError dos chamadores
+            # Mantém comportamento "silencioso": retorna {} para cair nos ramos de KeyError dos chamadores
             print(f"Erro na chamada da API DeepSeek: {e}")
             return {}
 
@@ -70,8 +68,6 @@ def _call_deepseek_api(prompt: str, is_json_output: bool = False) -> Dict[str, A
     except (ValueError, json.JSONDecodeError) as e:
         print(f"Erro ao decodificar a resposta JSON da API: Invalid JSON: {e}")
         return {}
-
-
 
 # --- Implementação dos Serviços Específicos ---
 
@@ -94,7 +90,6 @@ def sugerir_plano_de_topico(titulo_disciplina: str, titulo_topico: str) -> str:
         print(f"Erro ao processar sugestão de plano de tópico: {e}")
         return "Não foi possível gerar o plano de estudo no momento. Tente novamente mais tarde."
 
-
 def sugerir_subtopicos(topico: Topic) -> List[str]:
     """
     Gera uma lista de subtópicos para um tópico principal.
@@ -115,22 +110,66 @@ def sugerir_subtopicos(topico: Topic) -> List[str]:
         print(f"Erro ao processar sugestão de subtópicos: {e}")
         return []
 
-
-def gerar_quiz_completo(topic_id, num_easy, num_moderate, num_hard):
+def gerar_quiz_completo(topico: Topic, num_faceis: int = 7, num_moderadas: int = 7, num_dificeis: int = 6) -> Optional[Dict[str, Any]]:
+    """
+    Gera um quiz completo com perguntas de múltipla escolha sobre um tópico.
+    
+    Args:
+        topico: Objeto Topic do modelo
+        num_faceis: Número de perguntas fáceis
+        num_moderadas: Número de perguntas moderadas  
+        num_dificeis: Número de perguntas difíceis
+        
+    Returns:
+        Dict com dados do quiz ou None em caso de erro
+    """
+    total_questions = num_faceis + num_moderadas + num_dificeis
+    
+    prompt = (
+        f"Crie um quiz de múltipla escolha sobre o tópico '{topico.title}' "
+        f"da disciplina '{topico.course.title}'. "
+        f"O quiz deve ter {total_questions} perguntas no total: "
+        f"{num_faceis} fáceis, {num_moderadas} moderadas e {num_dificeis} difíceis. "
+        "Para cada pergunta, forneça 4 opções de resposta (A, B, C, D), "
+        "a resposta correta e uma explicação. "
+        "Retorne EXCLUSIVAMENTE um objeto JSON com esta estrutura: "
+        "{"
+        "\"quiz_title\": \"Título do Quiz\", "
+        "\"quiz_description\": \"Descrição do quiz\", "
+        "\"questions\": ["
+        "{"
+        "\"question_text\": \"Texto da pergunta?\", "
+        "\"choices\": {\"A\": \"Opção A\", \"B\": \"Opção B\", \"C\": \"Opção C\", \"D\": \"Opção D\"}, "
+        "\"correct_answer\": \"A\", "
+        "\"difficulty\": \"EASY\", "
+        "\"explanation\": \"Explicação da resposta\""
+        "}"
+        "]"
+        "}"
+    )
+    
     try:
-        # Sua lógica de chamada à API
-        response = requests.post(
-            API_URL,
-            json={'data': 'seus_dados'},
-            timeout=30  # Timeout de 30 segundos
-        )
-        response.raise_for_status()
-        return response.json()
-    except Timeout:
-        raise Timeout("Request timeout")
-    except requests.RequestException as e:
-        raise Exception(f"Erro na requisição: {str(e)}")
-
+        api_response = _call_deepseek_api(prompt, is_json_output=True)
+        content_json = json.loads(api_response['choices'][0]['message']['content'])
+        
+        # Validação básica dos dados retornados
+        if not content_json.get('quiz_title') or not content_json.get('questions'):
+            print("Quiz JSON incompleto retornado pela API")
+            return None
+            
+        # Validação das perguntas
+        questions = content_json.get('questions', [])
+        for question in questions:
+            required_fields = ['question_text', 'choices', 'correct_answer', 'difficulty']
+            if not all(field in question for field in required_fields):
+                print("Pergunta com campos obrigatórios ausentes")
+                return None
+                
+        return content_json
+        
+    except (KeyError, IndexError, json.JSONDecodeError, ConnectionError, ValueError) as e:
+        print(f"Erro ao gerar quiz completo: {e}")
+        return None
 
 def responder_pergunta_de_estudo(pergunta_usuario: str, historico_conversa: List[Dict[str, str]], topico_contexto: Optional[Topic] = None) -> str:
     """
@@ -156,7 +195,7 @@ def responder_pergunta_de_estudo(pergunta_usuario: str, historico_conversa: List
     }
 
     try:
-        response = _safe_post(DEEPSEEK_API_URL, headers=HEADERS, json=payload, timeout=60)
+        response = _safe_post(API_URL, headers=HEADERS, json=payload, timeout=60)
 
         if hasattr(response, "raise_for_status"):
             try:

@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 import logging
+import requests
 from .models import Quiz, Question, Attempt, Answer
 from .serializers import (
     QuizDetailSerializer, 
@@ -18,82 +19,93 @@ from apps.core.services import deepseek_service
 from apps.learning.models import Topic
 from requests.exceptions import Timeout
 
+logger = logging.getLogger(__name__)
+
 class GenerateQuizView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
         try:
             # Validar dados de entrada
-            topic_id = request.data.get('topic_id')
-            num_easy = request.data.get('num_easy', 0)
-            num_moderate = request.data.get('num_moderate', 0)
-            num_hard = request.data.get('num_hard', 0)
+            serializer = QuizGenerationSerializer(data=request.data, context={'request': request})
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-            # Validar se pelo menos uma pergunta foi solicitada
-            if num_easy + num_moderate + num_hard <= 0:
-                return Response(
-                    {"error": "Pelo menos uma pergunta deve ser solicitada"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            validated_data = serializer.validated_data
+            topic = validated_data['topic_id']  # Agora é o objeto Topic
+            num_easy = validated_data.get('num_easy', 7)
+            num_moderate = validated_data.get('num_moderate', 7)
+            num_hard = validated_data.get('num_hard', 6)
             
-            if not topic_id:
-                return Response(
-                    {"error": "topic_id é obrigatório"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # Chamar serviço de IA
+            quiz_data = deepseek_service.gerar_quiz_completo(
+                topico=topic,
+                num_faceis=num_easy,
+                num_moderadas=num_moderate,
+                num_dificeis=num_hard
+            )
+            
             if not quiz_data:
-                 logger.warning("Serviço gerar_quiz_completo retornou None ou dados inválidos.")
-                 return Response(
+                logger.warning("Serviço gerar_quiz_completo retornou None ou dados inválidos.")
+                return Response(
                     {"error": "Falha ao gerar o quiz. Serviço indisponível."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
             
-            return Response(quiz_data, status=status.HTTP_200_O)
-            # Chamar serviço de IA
-            from apps.core.services import deepseek_service
-            quiz_data = deepseek_service.gerar_quiz_completo(
-                topic_id=topic_id,
-                num_easy=num_easy,
-                num_moderate=num_moderate,
-                num_hard=num_hard
-            )
+            # Criar o quiz no banco de dados com transaction
+            with transaction.atomic():
+                quiz = Quiz.objects.create(
+                    topic=topic,
+                    title=quiz_data.get('quiz_title', f'Quiz sobre {topic.title}'),
+                    description=quiz_data.get('quiz_description', ''),
+                    total_questions=len(quiz_data.get('questions', []))
+                )
+                
+                # Criar as perguntas
+                questions_data = quiz_data.get('questions', [])
+                for question_data in questions_data:
+                    Question.objects.create(
+                        quiz=quiz,
+                        question_text=question_data['question_text'],
+                        choices=question_data['choices'],
+                        correct_answer=question_data['correct_answer'],
+                        difficulty=question_data.get('difficulty', 'MODERATE'),
+                        explanation=question_data.get('explanation', '')
+                    )
             
-            return Response(quiz_data, status=status.HTTP_200_OK)
+            # Retornar o quiz criado
+            serializer = QuizDetailSerializer(quiz)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
             
-        except requests.exceptions.Timeout: # Se o serviço lança Timeout
-             logger.error("Timeout ao chamar o serviço de IA.")
-             return Response(
+        except requests.exceptions.Timeout:
+            logger.error("Timeout ao chamar o serviço de IA.")
+            return Response(
                 {"error": "Serviço de IA indisponível (timeout)."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
-        except requests.exceptions.HTTPError as e: # Se o serviço relança HTTPError
-            # Aqui você pode tratar códigos específicos, como 401
+        except requests.exceptions.HTTPError as e:
             if e.response.status_code == 401:
                 logger.error("Erro 401 Unauthorized ao chamar a API da IA. Verifique a API Key.")
-                # Para o teste, talvez você queira retornar 503 mesmo para 401
-                # Ou um 500 mais específico. Vamos com 503 por enquanto.
-                 return Response(
+                return Response(
                     {"error": "Serviço de IA não autorizado. Configuração inválida."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
             else:
                 logger.error(f"HTTPError ao chamar a API da IA: {e}")
-                 return Response(
+                return Response(
                     {"error": "Erro no serviço de IA."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
-        except ValueError as e: # Se o serviço lança ValueError para dados inválidos
-             logger.warning(f"Dados de entrada inválidos para geração de quiz: {e}")
-             return Response(
+        except ValueError as e:
+            logger.warning(f"Dados de entrada inválidos para geração de quiz: {e}")
+            return Response(
                 {"error": f"Dados inválidos: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
-            # Log do erro para depuração - AGORA 'logger' ESTÁ DEFINIDO
-            logger.error(f"Erro interno ao gerar quiz: {e}", exc_info=True) # exc_info=True mostra o traceback completo
-
+            logger.error(f"Erro interno ao gerar quiz: {e}", exc_info=True)
             return Response(
-                {"error": "Erro interno no servidor."},
+                {"error": "Erro inesperado no servidor."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -222,4 +234,3 @@ class AttemptViewSet(viewsets.ReadOnlyModelViewSet):
         return self.queryset.filter(
             user=self.request.user
         ).select_related('quiz').prefetch_related('answers__question')
-
