@@ -1,0 +1,1953 @@
+openapi: 3.0.3
+info:
+  title: StudyPlatform API
+  version: 1.0.0
+  description: Documentação da API para a plataforma de estudos StudyPlatform
+paths:
+  /api/accounts/auth/jwt/create/:
+    post:
+      operationId: api_accounts_auth_jwt_create_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/accounts/auth/jwt/refresh/:
+    post:
+      operationId: api_accounts_auth_jwt_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/accounts/auth/jwt/verify/:
+    post:
+      operationId: api_accounts_auth_jwt_verify_create
+      description: |-
+        Takes a token and indicates if it is valid.  This view provides no
+        information about a token's fitness for a particular use.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerify'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenVerify'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenVerify'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenVerify'
+          description: ''
+  /api/accounts/auth/users/:
+    get:
+      operationId: api_accounts_auth_users_list
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
+    post:
+      operationId: api_accounts_auth_users_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreate'
+          description: ''
+  /api/accounts/auth/users/{id}/:
+    get:
+      operationId: api_accounts_auth_users_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: api_accounts_auth_users_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: api_accounts_auth_users_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: api_accounts_auth_users_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/accounts/auth/users/activation/:
+    post:
+      operationId: api_accounts_auth_users_activation_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Activation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Activation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Activation'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activation'
+          description: ''
+  /api/accounts/auth/users/me/:
+    get:
+      operationId: api_accounts_auth_users_me_retrieve
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: api_accounts_auth_users_me_update
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: api_accounts_auth_users_me_partial_update
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: api_accounts_auth_users_me_destroy
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/accounts/auth/users/resend_activation/:
+    post:
+      operationId: api_accounts_auth_users_resend_activation_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailReset'
+          description: ''
+  /api/accounts/auth/users/reset_email/:
+    post:
+      operationId: api_accounts_auth_users_reset_email_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailReset'
+          description: ''
+  /api/accounts/auth/users/reset_email_confirm/:
+    post:
+      operationId: api_accounts_auth_users_reset_email_confirm_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsernameResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UsernameResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UsernameResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsernameResetConfirm'
+          description: ''
+  /api/accounts/auth/users/reset_password/:
+    post:
+      operationId: api_accounts_auth_users_reset_password_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailReset'
+          description: ''
+  /api/accounts/auth/users/reset_password_confirm/:
+    post:
+      operationId: api_accounts_auth_users_reset_password_confirm_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirm'
+          description: ''
+  /api/accounts/auth/users/set_email/:
+    post:
+      operationId: api_accounts_auth_users_set_email_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetUsername'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetUsername'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetUsername'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetUsername'
+          description: ''
+  /api/accounts/auth/users/set_password/:
+    post:
+      operationId: api_accounts_auth_users_set_password_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPassword'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetPassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetPassword'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPassword'
+          description: ''
+  /api/accounts/profile/:
+    get:
+      operationId: api_accounts_profile_retrieve
+      description: |-
+        Endpoint para um usuário ver e atualizar seu próprio perfil.
+        - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
+        - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+    put:
+      operationId: api_accounts_profile_update
+      description: |-
+        Endpoint para um usuário ver e atualizar seu próprio perfil.
+        - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
+        - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Profile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Profile'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+    patch:
+      operationId: api_accounts_profile_partial_update
+      description: |-
+        Endpoint para um usuário ver e atualizar seu próprio perfil.
+        - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
+        - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProfile'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+  /api/analytics/study-effectiveness/:
+    get:
+      operationId: api_analytics_study_effectiveness_retrieve
+      description: |-
+        Endpoint de análise que calcula a correlação entre o tempo de estudo
+        por tópico e as notas médias dos quizzes para esses tópicos.
+        URL: GET /api/analytics/study-effectiveness/
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/assessment/attempts/:
+    get:
+      operationId: api_assessment_attempts_list
+      description: |-
+        API para listar e ver detalhes das Tentativas de um usuário.
+        - GET /api/assessment/attempts/
+        - GET /api/assessment/attempts/{id}/
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttemptDetail'
+          description: ''
+  /api/assessment/attempts/{id}/:
+    get:
+      operationId: api_assessment_attempts_retrieve
+      description: |-
+        API para listar e ver detalhes das Tentativas de um usuário.
+        - GET /api/assessment/attempts/
+        - GET /api/assessment/attempts/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Tentativa.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptDetail'
+          description: ''
+  /api/assessment/generate-quiz/:
+    post:
+      operationId: api_assessment_generate_quiz_create
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/assessment/quizzes/:
+    get:
+      operationId: api_assessment_quizzes_list
+      description: |-
+        API para listar e ver detalhes dos Quizzes disponíveis.
+        - GET /api/assessment/quizzes/
+        - GET /api/assessment/quizzes/{id}/
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuizDetail'
+          description: ''
+  /api/assessment/quizzes/{id}/:
+    get:
+      operationId: api_assessment_quizzes_retrieve
+      description: |-
+        API para listar e ver detalhes dos Quizzes disponíveis.
+        - GET /api/assessment/quizzes/
+        - GET /api/assessment/quizzes/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Quiz.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuizDetail'
+          description: ''
+  /api/assessment/submit-attempt/:
+    post:
+      operationId: api_assessment_submit_attempt_create
+      description: |-
+        Endpoint para um usuário submeter as respostas de uma tentativa de quiz.
+        URL: POST /api/assessment/submit-attempt/
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptSubmission'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AttemptSubmission'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttemptSubmission'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptSubmission'
+          description: ''
+  /api/chat/ask/:
+    post:
+      operationId: api_chat_ask_create
+      description: |-
+        Endpoint para o chat de estudo interativo.
+        Atua como um proxy para o serviço de IA, adicionando contexto.
+        URL: POST /api/chat/ask/
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/learning/courses/:
+    get:
+      operationId: api_learning_courses_list
+      description: |-
+        API para listar e ver detalhes dos Cursos do usuário.
+        Não permite criação/edição por aqui para forçar o uso do fluxo principal.
+        - GET /api/learning/courses/ (lista todos os cursos)
+        - GET /api/learning/courses/{id}/ (detalhes de um curso)
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseDetail'
+          description: ''
+  /api/learning/courses/{id}/:
+    get:
+      operationId: api_learning_courses_retrieve
+      description: |-
+        API para listar e ver detalhes dos Cursos do usuário.
+        Não permite criação/edição por aqui para forçar o uso do fluxo principal.
+        - GET /api/learning/courses/ (lista todos os cursos)
+        - GET /api/learning/courses/{id}/ (detalhes de um curso)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Disciplina.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseDetail'
+          description: ''
+  /api/learning/create-study-plan/:
+    post:
+      operationId: api_learning_create_study_plan_create
+      description: |-
+        Endpoint único para o fluxo principal de criação.
+        Recebe um título de disciplina e um tópico, e cria tudo:
+        Curso -> Tópico -> Subtópicos (via IA).
+        URL: POST /api/learning/create-study-plan/
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseCreation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseCreation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseCreation'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseCreation'
+          description: ''
+  /api/learning/subtopics/{id}/:
+    put:
+      operationId: api_learning_subtopics_update
+      description: |-
+        Endpoint específico para atualizar um Subtópico.
+        Principalmente para marcar como concluído.
+        - PATCH /api/learning/subtopics/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subtopic'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Subtopic'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Subtopic'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subtopic'
+          description: ''
+    patch:
+      operationId: api_learning_subtopics_partial_update
+      description: |-
+        Endpoint específico para atualizar um Subtópico.
+        Principalmente para marcar como concluído.
+        - PATCH /api/learning/subtopics/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSubtopic'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSubtopic'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSubtopic'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subtopic'
+          description: ''
+  /api/learning/topics/:
+    get:
+      operationId: api_learning_topics_list
+      description: |-
+        API para listar e ver detalhes dos Tópicos do usuário.
+        - GET /api/learning/topics/
+        - GET /api/learning/topics/{id}/
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Topic'
+          description: ''
+  /api/learning/topics/{id}/:
+    get:
+      operationId: api_learning_topics_retrieve
+      description: |-
+        API para listar e ver detalhes dos Tópicos do usuário.
+        - GET /api/learning/topics/
+        - GET /api/learning/topics/{id}/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Tópico.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+          description: ''
+  /api/scheduling/generate-schedule/:
+    post:
+      operationId: api_scheduling_generate_schedule_create
+      description: Espera um 'topic_id' no corpo da requisição.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/scheduling/logs/:
+    get:
+      operationId: api_scheduling_logs_list
+      description: |-
+        API para gerenciar os Registros de Estudo (StudyLog).
+        Permite que o usuário registre as sessões de estudo que completou.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudyLog'
+          description: ''
+    post:
+      operationId: api_scheduling_logs_create
+      description: |-
+        API para gerenciar os Registros de Estudo (StudyLog).
+        Permite que o usuário registre as sessões de estudo que completou.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudyLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudyLog'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyLog'
+          description: ''
+  /api/scheduling/logs/{id}/:
+    get:
+      operationId: api_scheduling_logs_retrieve
+      description: |-
+        API para gerenciar os Registros de Estudo (StudyLog).
+        Permite que o usuário registre as sessões de estudo que completou.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Registro de Estudo.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyLog'
+          description: ''
+    put:
+      operationId: api_scheduling_logs_update
+      description: |-
+        API para gerenciar os Registros de Estudo (StudyLog).
+        Permite que o usuário registre as sessões de estudo que completou.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Registro de Estudo.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudyLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudyLog'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyLog'
+          description: ''
+    patch:
+      operationId: api_scheduling_logs_partial_update
+      description: |-
+        API para gerenciar os Registros de Estudo (StudyLog).
+        Permite que o usuário registre as sessões de estudo que completou.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Registro de Estudo.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudyLog'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudyLog'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudyLog'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyLog'
+          description: ''
+    delete:
+      operationId: api_scheduling_logs_destroy
+      description: |-
+        API para gerenciar os Registros de Estudo (StudyLog).
+        Permite que o usuário registre as sessões de estudo que completou.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Registro de Estudo.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/scheduling/plans/:
+    get:
+      operationId: api_scheduling_plans_list
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudyPlan'
+          description: ''
+    post:
+      operationId: api_scheduling_plans_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyPlan'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudyPlan'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudyPlan'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyPlan'
+          description: ''
+  /api/scheduling/plans/{id}/:
+    get:
+      operationId: api_scheduling_plans_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Plano de Estudo Semanal.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyPlan'
+          description: ''
+    put:
+      operationId: api_scheduling_plans_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Plano de Estudo Semanal.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyPlan'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudyPlan'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudyPlan'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyPlan'
+          description: ''
+    patch:
+      operationId: api_scheduling_plans_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Plano de Estudo Semanal.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudyPlan'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudyPlan'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudyPlan'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyPlan'
+          description: ''
+    delete:
+      operationId: api_scheduling_plans_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Plano de Estudo Semanal.
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    Activation:
+      type: object
+      properties:
+        uid:
+          type: string
+        token:
+          type: string
+      required:
+      - token
+      - uid
+    AnswerDetail:
+      type: object
+      description: Serializador para mostrar os detalhes de uma resposta dada pelo
+        usuário.
+      properties:
+        question:
+          allOf:
+          - $ref: '#/components/schemas/Question'
+          readOnly: true
+        user_answer:
+          type: string
+          title: Resposta do Usuário
+          maxLength: 10
+        is_correct:
+          type: boolean
+          title: Está Correta?
+      required:
+      - is_correct
+      - question
+      - user_answer
+    AttemptDetail:
+      type: object
+      description: Serializador para mostrar o resultado detalhado de uma tentativa.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        quiz:
+          type: integer
+        quiz_title:
+          type: string
+          readOnly: true
+        score:
+          type: number
+          format: double
+          maximum: 100.0
+          minimum: 0.0
+          title: Pontuação (%)
+        correct_answers_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Respostas Corretas
+        incorrect_answers_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Respostas Incorretas
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Data de Conclusão
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerDetail'
+          readOnly: true
+      required:
+      - answers
+      - completed_at
+      - id
+      - quiz
+      - quiz_title
+    AttemptSubmission:
+      type: object
+      description: Valida a submissão de uma tentativa de quiz completa.
+      properties:
+        quiz_id:
+          type: integer
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmitAnswer'
+      required:
+      - answers
+      - quiz_id
+    CourseCreation:
+      type: object
+      description: |-
+        Serializador específico para o fluxo de criação de Curso + Tópico + Subtópicos.
+        Não está atrelado a um modelo, apenas define os campos de entrada da API.
+      properties:
+        course_title:
+          type: string
+          description: 'Título da disciplina. Ex: Cálculo I'
+          maxLength: 200
+        topic_title:
+          type: string
+          description: 'Tópico principal a ser estudado. Ex: Limites e Derivadas'
+          maxLength: 200
+        course_description:
+          type: string
+          description: Descrição opcional da disciplina.
+      required:
+      - course_title
+      - topic_title
+    CourseDetail:
+      type: object
+      description: Serializador para listar e detalhar Cursos, mostrando os tópicos
+        aninhados.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Título da Disciplina
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          title: Descrição
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Data de Criação
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - title
+      - topics
+    DayOfWeekEnum:
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      type: integer
+      description: |-
+        * `0` - Segunda-feira
+        * `1` - Terça-feira
+        * `2` - Quarta-feira
+        * `3` - Quinta-feira
+        * `4` - Sexta-feira
+        * `5` - Sábado
+        * `6` - Domingo
+    DifficultyEnum:
+      enum:
+      - EASY
+      - MODERATE
+      - HARD
+      type: string
+      description: |-
+        * `EASY` - Fácil
+        * `MODERATE` - Moderada
+        * `HARD` - Difícil
+    PasswordResetConfirm:
+      type: object
+      properties:
+        uid:
+          type: string
+        token:
+          type: string
+        new_password:
+          type: string
+      required:
+      - new_password
+      - token
+      - uid
+    PatchedProfile:
+      type: object
+      description: Serializador para o perfil do usuário.
+      properties:
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+          title: Foto de Perfil
+        bio:
+          type: string
+          title: Biografia
+          maxLength: 500
+    PatchedStudyLog:
+      type: object
+      description: Serializador para o modelo StudyLog (Sessões de Estudo Realizadas).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        topic:
+          type: integer
+          nullable: true
+          title: Tópico Estudado
+        course:
+          type: integer
+          title: Disciplina
+        date:
+          type: string
+          format: date
+          title: Data do Estudo
+        minutes_studied:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          title: Minutos Estudados
+        notes:
+          type: string
+          nullable: true
+          title: Anotações
+          description: O que você aprendeu? Quais foram suas dificuldades?
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedStudyPlan:
+      type: object
+      description: Serializador para o modelo StudyPlan (Metas de Estudo).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        course:
+          type: integer
+          title: Disciplina
+        course_title:
+          type: string
+          readOnly: true
+        day_of_week:
+          allOf:
+          - $ref: '#/components/schemas/DayOfWeekEnum'
+          title: Dia da Semana
+          minimum: -9223372036854775808
+          maximum: 9223372036854775807
+        day_of_week_display:
+          type: string
+          readOnly: true
+        minutes_planned:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          title: Minutos Planejados
+          description: Quantos minutos você planeja estudar esta disciplina neste
+            dia.
+    PatchedSubtopic:
+      type: object
+      description: |-
+        Serializador para o modelo Subtopic.
+        Reflete os campos do models.py: title, details, order, is_completed.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Título do Subtópico
+          maxLength: 200
+        details:
+          type: string
+          nullable: true
+          title: Detalhes
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Ordem
+        is_completed:
+          type: boolean
+          title: Concluído
+    PatchedUser:
+      type: object
+      description: Serializador para exibir os dados do usuário, incluindo o perfil.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Endereço de e-mail
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/Profile'
+          readOnly: true
+    Profile:
+      type: object
+      description: Serializador para o perfil do usuário.
+      properties:
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+          title: Foto de Perfil
+        bio:
+          type: string
+          title: Biografia
+          maxLength: 500
+    Question:
+      type: object
+      description: Serializador para exibir uma Pergunta (sem a resposta correta).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        question_text:
+          type: string
+          title: Texto da Pergunta
+        choices:
+          title: Opções de Resposta
+        difficulty:
+          allOf:
+          - $ref: '#/components/schemas/DifficultyEnum'
+          title: Nível de Dificuldade
+      required:
+      - choices
+      - id
+      - question_text
+    QuizDetail:
+      type: object
+      description: Serializador para exibir um Quiz com todas as suas perguntas.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        topic:
+          type: integer
+          title: Tópico
+        topic_title:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          title: Título do Quiz
+          maxLength: 255
+        description:
+          type: string
+          title: Descrição
+        total_questions:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Número Total de Perguntas
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Data de Criação
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - questions
+      - title
+      - topic
+      - topic_title
+    SendEmailReset:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    SetPassword:
+      type: object
+      properties:
+        new_password:
+          type: string
+        current_password:
+          type: string
+      required:
+      - current_password
+      - new_password
+    SetUsername:
+      type: object
+      properties:
+        current_password:
+          type: string
+        new_email:
+          type: string
+          format: email
+          title: Endereço de e-mail
+          maxLength: 254
+      required:
+      - current_password
+      - new_email
+    StudyLog:
+      type: object
+      description: Serializador para o modelo StudyLog (Sessões de Estudo Realizadas).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        topic:
+          type: integer
+          nullable: true
+          title: Tópico Estudado
+        course:
+          type: integer
+          title: Disciplina
+        date:
+          type: string
+          format: date
+          title: Data do Estudo
+        minutes_studied:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          title: Minutos Estudados
+        notes:
+          type: string
+          nullable: true
+          title: Anotações
+          description: O que você aprendeu? Quais foram suas dificuldades?
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - course
+      - created_at
+      - date
+      - id
+      - minutes_studied
+    StudyPlan:
+      type: object
+      description: Serializador para o modelo StudyPlan (Metas de Estudo).
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        course:
+          type: integer
+          title: Disciplina
+        course_title:
+          type: string
+          readOnly: true
+        day_of_week:
+          allOf:
+          - $ref: '#/components/schemas/DayOfWeekEnum'
+          title: Dia da Semana
+          minimum: -9223372036854775808
+          maximum: 9223372036854775807
+        day_of_week_display:
+          type: string
+          readOnly: true
+        minutes_planned:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          title: Minutos Planejados
+          description: Quantos minutos você planeja estudar esta disciplina neste
+            dia.
+      required:
+      - course
+      - course_title
+      - day_of_week
+      - day_of_week_display
+      - id
+      - minutes_planned
+    SubmitAnswer:
+      type: object
+      description: Valida uma única resposta enviada pelo usuário.
+      properties:
+        question_id:
+          type: integer
+        user_answer:
+          type: string
+          maxLength: 10
+      required:
+      - question_id
+      - user_answer
+    Subtopic:
+      type: object
+      description: |-
+        Serializador para o modelo Subtopic.
+        Reflete os campos do models.py: title, details, order, is_completed.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Título do Subtópico
+          maxLength: 200
+        details:
+          type: string
+          nullable: true
+          title: Detalhes
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Ordem
+        is_completed:
+          type: boolean
+          title: Concluído
+      required:
+      - id
+      - title
+    TokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - email
+      - password
+      - refresh
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenVerify:
+      type: object
+      properties:
+        token:
+          type: string
+          writeOnly: true
+      required:
+      - token
+    Topic:
+      type: object
+      description: Serializador para o modelo Topic, incluindo seus subtópicos aninhados.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          title: Título do Tópico
+          maxLength: 200
+        slug:
+          type: string
+          readOnly: true
+          description: Identificador único para a URL, gerado a partir do título.
+          pattern: ^[-a-zA-Z0-9_]+$
+        course:
+          type: integer
+          title: Disciplina
+        suggested_study_plan:
+          type: string
+          nullable: true
+          title: Plano de Estudo Sugerido
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Ordem
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        subtopics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subtopic'
+          readOnly: true
+      required:
+      - course
+      - created_at
+      - id
+      - slug
+      - subtopics
+      - title
+    User:
+      type: object
+      description: Serializador para exibir os dados do usuário, incluindo o perfil.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Endereço de e-mail
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/Profile'
+          readOnly: true
+      required:
+      - email
+      - id
+      - profile
+      - username
+    UserCreate:
+      type: object
+      description: |-
+        Serializador para a criação de novos usuários.
+        Garante que o campo de e-mail seja usado para o login.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          title: Endereço de e-mail
+          maxLength: 254
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+      required:
+      - email
+      - id
+      - password
+      - username
+    UsernameResetConfirm:
+      type: object
+      properties:
+        new_email:
+          type: string
+          format: email
+          title: Endereço de e-mail
+          maxLength: 254
+      required:
+      - new_email
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

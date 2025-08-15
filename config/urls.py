@@ -20,6 +20,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView # <-- Importe as views
+
 
 urlpatterns = [
     # 1. Rota para a interface de administração do Django
@@ -48,6 +50,11 @@ urlpatterns = [
     # 7. Rota do App 'analytics' para a análise de eficácia dos estudos
     # (prefixo: /api/analytics/)
     path('api/analytics/', include('apps.analytics.urls')),
+    
+    # URLs para a documentação da API com drf-spectacular
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'), # Gera o schema OpenAPI
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'), # Interface Swagger UI
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'), # Interface alternativa Redoc
 ]
 
 # Configuração para servir arquivos de mídia (como fotos de perfil) em ambiente de desenvolvimento

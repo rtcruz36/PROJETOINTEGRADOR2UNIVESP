@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'drf_spectacular',  # Para documentação OpenAPI
 ]
 
 MIDDLEWARE = [
@@ -110,6 +111,7 @@ REST_FRAMEWORK = {
         # Exige que os usuários estejam autenticados por padrão
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # Configuração do Simple JWT
@@ -200,3 +202,13 @@ if 'test' in sys.argv:
             return None
     
     MIGRATION_MODULES = DisableMigrations()
+    
+    
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'StudyPlatform API',
+    'DESCRIPTION': 'Documentação da API para a plataforma de estudos StudyPlatform',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False, # Exclui o endpoint /schema/ da interface Swagger
+    # Adicione mais configurações aqui conforme necessário
+    # https://drf-spectacular.readthedocs.io/en/latest/settings.html
+}
