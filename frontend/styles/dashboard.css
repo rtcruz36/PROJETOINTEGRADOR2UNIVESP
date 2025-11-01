@@ -100,6 +100,11 @@ body {
     transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
+.ghost-button--current {
+    background: rgba(76, 110, 245, 0.18);
+    border-color: rgba(76, 110, 245, 0.35);
+}
+
 .ghost-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 20px -12px rgba(76, 110, 245, 0.6);

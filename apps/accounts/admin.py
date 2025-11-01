@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Profile
+from .models import Profile, User, UserPreferences
 
 # Crie uma classe para customizar como o Profile aparece junto com o User
 class ProfileInline(admin.StackedInline):
@@ -10,9 +10,14 @@ class ProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = 'Perfis'
 
-# Estenda a classe UserAdmin padrão para incluir o Profile
+class UserPreferencesInline(admin.StackedInline):
+    model = UserPreferences
+    can_delete = False
+    verbose_name_plural = 'Preferências'
+
+
 class CustomUserAdmin(UserAdmin):
-    inlines = (ProfileInline,)
+    inlines = (ProfileInline, UserPreferencesInline)
 
 # Registre seus modelos
 admin.site.register(User, CustomUserAdmin)
