@@ -1,0 +1,232 @@
+diff --git a/apps/accounts/email.py b/apps/accounts/email.py
+index 2451a0846171eb057af58e55afe67f62e0ab04a9..781ed8d8590b8eb5227bd31f7cf2660a603ea81d 100644
+--- a/apps/accounts/email.py
++++ b/apps/accounts/email.py
+@@ -1,33 +1,63 @@
+ """Custom Djoser e-mail classes for the accounts app."""
+ 
++from urllib.parse import urljoin
++
++from django.conf import settings
++
+ from djoser import email as djoser_email
+ 
+ 
+ class ActivationEmail(djoser_email.ActivationEmail):
+     """Activation e-mail using the project's default configuration."""
+ 
++    template_name = 'accounts/email/activation.html'
++
++    def get_context_data(self):
++        context = super().get_context_data()
++        frontend_base_url = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
++        activation_path_template = settings.DJOSER.get('ACTIVATION_URL', '')
++
++        uid = context.get('uid')
++        token = context.get('token')
++        if activation_path_template and uid and token:
++            activation_path = activation_path_template.format(uid=uid, token=token)
++        else:
++            activation_path = context.get('url', '')
++
++        if frontend_base_url:
++            base_url = f'{frontend_base_url}/'
++        else:
++            protocol = context.get('protocol', 'http')
++            domain = context.get('domain', '')
++            base_url = f'{protocol}://{domain}/' if domain else ''
++
++        activation_url = urljoin(base_url, activation_path)
++        context['activation_url'] = activation_url
++        context['frontend_activation_url'] = activation_url
++        return context
++
+ 
+ class ConfirmationEmail(djoser_email.ConfirmationEmail):
+     """Confirmation e-mail used after account activation."""
+ 
+ 
+ class PasswordResetEmail(djoser_email.PasswordResetEmail):
+     """Password reset e-mail that includes the reset confirmation link."""
+ 
+ 
+ class PasswordResetConfirmationEmail(djoser_email.PasswordResetConfirmationEmail):
+     """Password reset confirmation e-mail."""
+ 
+ 
+ class PasswordChangedConfirmationEmail(djoser_email.PasswordChangedConfirmationEmail):
+     """Notification sent once a password change has been completed."""
+ 
+ 
+ class UsernameChangedConfirmationEmail(djoser_email.UsernameChangedConfirmationEmail):
+     """Notification sent after the username has been changed."""
+ 
+ 
+ class UsernameResetEmail(djoser_email.UsernameResetEmail):
+     """Username reset e-mail containing the reset instructions."""
+ 
+ 
+diff --git a/apps/accounts/templates/accounts/email/activation.html b/apps/accounts/templates/accounts/email/activation.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..fff1778d7169e6a6544ec0b98a00ce2857c2df12
+--- /dev/null
++++ b/apps/accounts/templates/accounts/email/activation.html
+@@ -0,0 +1,13 @@
++{% autoescape off %}
++Olá {{ user.first_name|default:user.username|default:user.email }},
++
++Recebemos o seu cadastro na plataforma {{ site_name }}.
++Para ativar sua conta e começar a usar todos os recursos, acesse o link abaixo:
++
++{{ activation_url }}
++
++Se você não solicitou esta conta, ignore este e-mail.
++
++Atenciosamente,
++Equipe {{ site_name }}
++{% endautoescape %}
+diff --git a/apps/accounts/tests.py b/apps/accounts/tests.py
+index 9f958a8410891c3860da0c3e5e5ceedde0bd07e2..5b0006b0ad1a50651619e514ccc4e00cec3de2aa 100644
+--- a/apps/accounts/tests.py
++++ b/apps/accounts/tests.py
+@@ -219,25 +219,69 @@ class PasswordResetFlowTests(APITestCase):
+             email_body,
+         )
+         self.assertIsNotNone(match, 'Password reset e-mail should contain uid and token')
+ 
+         confirm_response = self.client.post(
+             '/api/accounts/auth/users/reset_password_confirm/',
+             {
+                 'uid': match.group('uid'),
+                 'token': match.group('token'),
+                 'new_password': 'NewPassword456!',
+                 're_new_password': 'NewPassword456!',
+             },
+             format='json',
+         )
+ 
+         self.assertEqual(confirm_response.status_code, status.HTTP_204_NO_CONTENT)
+ 
+         login_response = self.client.post(
+             reverse('jwt-create'),
+             {'email': user.email, 'password': 'NewPassword456!'},
+             format='json',
+         )
+ 
+         self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+         self.assertIn('access', login_response.data)
++
++
++class AccountActivationFlowTests(APITestCase):
++    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
++    def test_registration_sends_activation_email_and_allows_activation(self):
++        response = self.client.post(
++            '/api/accounts/auth/users/',
++            {
++                'username': 'activateuser',
++                'email': 'activate@example.com',
++                'password': 'StrongPassword123!',
++            },
++            format='json',
++        )
++
++        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
++
++        user = User.objects.get(email='activate@example.com')
++        self.assertFalse(user.is_active)
++
++        self.assertEqual(len(mail.outbox), 1)
++        email_body = mail.outbox[0].body
++        self.assertIn('Recebemos o seu cadastro na plataforma', email_body)
++        self.assertIn('http://localhost:3000/auth/activate/', email_body)
++
++        match = re.search(
++            r'http://localhost:3000/auth/activate/(?P<uid>[^/]+)/(?P<token>[^\s]+)',
++            email_body,
++        )
++        self.assertIsNotNone(match, 'Activation e-mail should contain uid and token')
++
++        activation_response = self.client.post(
++            '/api/accounts/auth/users/activation/',
++            {
++                'uid': match.group('uid'),
++                'token': match.group('token'),
++            },
++            format='json',
++        )
++
++        self.assertEqual(activation_response.status_code, status.HTTP_204_NO_CONTENT)
++
++        user.refresh_from_db()
++        self.assertTrue(user.is_active)
+diff --git a/config/settings.py b/config/settings.py
+index 2c326788c1c631931c0230d3f040e428294e692c..094451ad6e6ce2a292e66d0d7211c4687ffe1a47 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -103,56 +103,60 @@ DATABASES = {
+ }
+ 
+ # Configuração do Django Rest Framework (DRF)
+ REST_FRAMEWORK = {
+     'DEFAULT_AUTHENTICATION_CLASSES': (
+         # Define JWT como o método principal de autenticação para a API
+         'rest_framework_simplejwt.authentication.JWTAuthentication',
+     ),
+     'DEFAULT_PERMISSION_CLASSES': (
+         # Exige que os usuários estejam autenticados por padrão
+         'rest_framework.permissions.IsAuthenticated',
+     ),
+     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+ }
+ 
+ # Configuração do Simple JWT
+ from datetime import timedelta
+ 
+ SIMPLE_JWT = {
+     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # Duração do token de acesso (curto)
+     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # Duração do token de refresh (longo)
+     'ROTATE_REFRESH_TOKENS': True, # Opcional: gera um novo refresh token a cada uso
+     'BLACKLIST_AFTER_ROTATION': True, # Opcional: invalida o refresh token antigo
+ }
+ 
++# Configuração do frontend para links enviados por e-mail
++FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
++
++
+ # Configuração do Djoser
+ DJOSER = {
+     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
+     'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
+-    'ACTIVATION_URL': '#/activate/{uid}/{token}',
+-    'SEND_ACTIVATION_EMAIL': False,  # Mude para True se quiser confirmação por e-mail
++    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',
++    'SEND_ACTIVATION_EMAIL': True,
+     'SERIALIZERS': {
+         'user_create': 'apps.accounts.serializers.UserCreateSerializer',
+         'user': 'apps.accounts.serializers.UserSerializer',
+         'current_user': 'apps.accounts.serializers.UserSerializer',
+         'set_password': 'apps.accounts.serializers.SetPasswordSerializer',
+     },
+     'EMAIL': {
+         'activation': 'apps.accounts.email.ActivationEmail',
+         'confirmation': 'apps.accounts.email.ConfirmationEmail',
+         'password_reset': 'apps.accounts.email.PasswordResetEmail',
+         'password_reset_confirmation': 'apps.accounts.email.PasswordResetConfirmationEmail',
+         'password_changed_confirmation': 'apps.accounts.email.PasswordChangedConfirmationEmail',
+         'username_changed_confirmation': 'apps.accounts.email.UsernameChangedConfirmationEmail',
+         'username_reset': 'apps.accounts.email.UsernameResetEmail',
+         'username_reset_confirmation': 'apps.accounts.email.UsernameResetConfirmationEmail',
+     },
+     'USER_ID_FIELD': 'id',
+     'LOGIN_FIELD': 'email', # Usar email para login
+     'PERMISSIONS': {
+         'set_password': (
+             'rest_framework.permissions.IsAuthenticated',
+         ),
+         'password_reset': (
+             'rest_framework.permissions.AllowAny',
+         ),
+            'username_reset': (
+                'rest_framework.permissions.AllowAny',
+            ),},
+ }

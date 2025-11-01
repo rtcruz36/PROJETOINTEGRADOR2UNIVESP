@@ -1,0 +1,13 @@
+{% autoescape off %}
+Olá {{ user.first_name|default:user.username|default:user.email }},
+
+Recebemos o seu cadastro na plataforma {{ site_name }}.
+Para ativar sua conta e começar a usar todos os recursos, acesse o link abaixo:
+
+{{ activation_url }}
+
+Se você não solicitou esta conta, ignore este e-mail.
+
+Atenciosamente,
+Equipe {{ site_name }}
+{% endautoescape %}

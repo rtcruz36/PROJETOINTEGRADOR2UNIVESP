@@ -241,3 +241,47 @@ class PasswordResetFlowTests(APITestCase):
 
         self.assertEqual(login_response.status_code, status.HTTP_200_OK)
         self.assertIn('access', login_response.data)
+
+
+class AccountActivationFlowTests(APITestCase):
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_registration_sends_activation_email_and_allows_activation(self):
+        response = self.client.post(
+            '/api/accounts/auth/users/',
+            {
+                'username': 'activateuser',
+                'email': 'activate@example.com',
+                'password': 'StrongPassword123!',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        user = User.objects.get(email='activate@example.com')
+        self.assertFalse(user.is_active)
+
+        self.assertEqual(len(mail.outbox), 1)
+        email_body = mail.outbox[0].body
+        self.assertIn('Recebemos o seu cadastro na plataforma', email_body)
+        self.assertIn('http://localhost:3000/auth/activate/', email_body)
+
+        match = re.search(
+            r'http://localhost:3000/auth/activate/(?P<uid>[^/]+)/(?P<token>[^\s]+)',
+            email_body,
+        )
+        self.assertIsNotNone(match, 'Activation e-mail should contain uid and token')
+
+        activation_response = self.client.post(
+            '/api/accounts/auth/users/activation/',
+            {
+                'uid': match.group('uid'),
+                'token': match.group('token'),
+            },
+            format='json',
+        )
+
+        self.assertEqual(activation_response.status_code, status.HTTP_204_NO_CONTENT)
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)

@@ -125,12 +125,16 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True, # Opcional: invalida o refresh token antigo
 }
 
+# Configuração do frontend para links enviados por e-mail
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+
+
 # Configuração do Djoser
 DJOSER = {
     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
     'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
-    'ACTIVATION_URL': '#/activate/{uid}/{token}',
-    'SEND_ACTIVATION_EMAIL': False,  # Mude para True se quiser confirmação por e-mail
+    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL': True,
     'SERIALIZERS': {
         'user_create': 'apps.accounts.serializers.UserCreateSerializer',
         'user': 'apps.accounts.serializers.UserSerializer',
