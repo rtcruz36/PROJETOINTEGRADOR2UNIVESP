@@ -60,6 +60,42 @@
                 </article>
             </section>
 
+            <article class="panel course-library-panel" aria-label="Biblioteca de cursos">
+                <header class="course-library-header">
+                    <div>
+                        <h2>Biblioteca de Cursos</h2>
+                        <span class="panel-subtitle">Visualize seu progresso e organize novas disciplinas</span>
+                    </div>
+                    <button id="add-course-button" class="primary-button primary-button--small" type="button">
+                        Adicionar novo curso
+                    </button>
+                </header>
+
+                <div class="course-library-controls" role="group" aria-label="Filtros da biblioteca de cursos">
+                    <label class="filter-field" for="course-status-filter">
+                        <span>Status</span>
+                        <select id="course-status-filter" class="library-select">
+                            <option value="all">Todos os cursos</option>
+                            <option value="in-progress">Em andamento</option>
+                            <option value="completed">Concluídos</option>
+                        </select>
+                    </label>
+                    <label class="filter-field" for="course-sort-order">
+                        <span>Ordenar por</span>
+                        <select id="course-sort-order" class="library-select">
+                            <option value="alphabetical">Ordem alfabética</option>
+                            <option value="recent">Mais recentes</option>
+                        </select>
+                    </label>
+                </div>
+
+                <p id="course-library-empty" class="course-library-empty" hidden>
+                    Nenhum curso cadastrado ainda. Adicione uma disciplina para começar seu plano de estudos.
+                </p>
+
+                <div id="course-library-list" class="course-library-grid" aria-live="polite"></div>
+            </article>
+
             <section class="grid-layout">
                 <article class="panel chart-panel">
                     <header>
@@ -121,6 +157,32 @@
             <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
             <button type="submit" class="primary-button">Entrar</button>
             <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <div id="create-plan-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-plan-title" hidden>
+        <form id="create-plan-form" class="modal-card">
+            <header class="modal-header">
+                <h2 id="create-plan-title">Adicionar novo curso</h2>
+                <p class="panel-subtitle">Crie rapidamente uma disciplina com o primeiro tópico a ser estudado.</p>
+            </header>
+            <label class="modal-field" for="course_title">
+                <span>Nome do curso</span>
+                <input id="course_title" name="course_title" type="text" required placeholder="Ex.: Cálculo I" />
+            </label>
+            <label class="modal-field" for="topic_title">
+                <span>Primeiro tópico</span>
+                <input id="topic_title" name="topic_title" type="text" required placeholder="Ex.: Limites e Derivadas" />
+            </label>
+            <label class="modal-field" for="course_description">
+                <span>Descrição (opcional)</span>
+                <textarea id="course_description" name="course_description" rows="3" placeholder="Inclua detalhes ou objetivos para este curso"></textarea>
+            </label>
+            <p id="create-plan-error" class="form-error" role="alert"></p>
+            <div class="modal-actions">
+                <button id="cancel-create-plan" class="ghost-button" type="button">Cancelar</button>
+                <button id="submit-create-plan" class="primary-button" type="submit">Criar curso</button>
+            </div>
         </form>
     </div>
 

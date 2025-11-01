@@ -1,0 +1,952 @@
+diff --git a/frontend/index.html b/frontend/index.html
+index 728d086971f54e0673efd9423563544eaae35383..676d183ab06eb49870da7d52968c0089e936e90e 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -38,50 +38,86 @@
+                     </div>
+                 </article>
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">🧠</span>
+                     <div>
+                         <h2>Tópicos em andamento</h2>
+                         <p id="topics-in-progress" class="summary-value">--</p>
+                     </div>
+                 </article>
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">✅</span>
+                     <div>
+                         <h2>Quizzes concluídos</h2>
+                         <p id="quizzes-completed" class="summary-value">--</p>
+                     </div>
+                 </article>
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">🔥</span>
+                     <div>
+                         <h2>Sequência de estudo</h2>
+                         <p id="streak-info" class="summary-value">--</p>
+                     </div>
+                 </article>
+             </section>
+ 
++            <article class="panel course-library-panel" aria-label="Biblioteca de cursos">
++                <header class="course-library-header">
++                    <div>
++                        <h2>Biblioteca de Cursos</h2>
++                        <span class="panel-subtitle">Visualize seu progresso e organize novas disciplinas</span>
++                    </div>
++                    <button id="add-course-button" class="primary-button primary-button--small" type="button">
++                        Adicionar novo curso
++                    </button>
++                </header>
++
++                <div class="course-library-controls" role="group" aria-label="Filtros da biblioteca de cursos">
++                    <label class="filter-field" for="course-status-filter">
++                        <span>Status</span>
++                        <select id="course-status-filter" class="library-select">
++                            <option value="all">Todos os cursos</option>
++                            <option value="in-progress">Em andamento</option>
++                            <option value="completed">Concluídos</option>
++                        </select>
++                    </label>
++                    <label class="filter-field" for="course-sort-order">
++                        <span>Ordenar por</span>
++                        <select id="course-sort-order" class="library-select">
++                            <option value="alphabetical">Ordem alfabética</option>
++                            <option value="recent">Mais recentes</option>
++                        </select>
++                    </label>
++                </div>
++
++                <p id="course-library-empty" class="course-library-empty" hidden>
++                    Nenhum curso cadastrado ainda. Adicione uma disciplina para começar seu plano de estudos.
++                </p>
++
++                <div id="course-library-list" class="course-library-grid" aria-live="polite"></div>
++            </article>
++
+             <section class="grid-layout">
+                 <article class="panel chart-panel">
+                     <header>
+                         <h2>Tempo estudado nos últimos 7 dias</h2>
+                         <span id="study-total" class="panel-subtitle">-- minutos totais</span>
+                     </header>
+                     <canvas id="study-time-chart" role="img" aria-label="Gráfico do tempo de estudo"></canvas>
+                 </article>
+ 
+                 <article class="panel sessions-panel">
+                     <header>
+                         <h2>Próximas sessões de estudo</h2>
+                         <span class="panel-subtitle">Baseado no seu cronograma</span>
+                     </header>
+                     <ul id="upcoming-sessions" class="session-list" aria-live="polite"></ul>
+                 </article>
+ 
+                 <article class="panel quiz-panel">
+                     <header>
+                         <h2>Quiz recomendado do dia</h2>
+                         <span class="panel-subtitle">Escolhido com base no seu histórico</span>
+                     </header>
+                     <div id="recommended-quiz" class="quiz-card" aria-live="polite"></div>
+                 </article>
+ 
+@@ -102,39 +138,65 @@
+                             <circle class="progress-ring__progress" cx="60" cy="60" r="54" />
+                         </svg>
+                         <div class="progress-text">
+                             <p id="progress-percentage" class="progress-percentage">--%</p>
+                             <span id="progress-detail" class="progress-detail">--</span>
+                         </div>
+                     </div>
+                 </article>
+             </section>
+         </main>
+     </div>
+ 
+     <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+         <form id="login-form" class="login-card">
+             <h2>Entrar</h2>
+             <p>Acesse sua conta para visualizar o dashboard.</p>
+             <label for="email">E-mail</label>
+             <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+             <label for="password">Senha</label>
+             <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+             <button type="submit" class="primary-button">Entrar</button>
+             <p id="login-error" class="form-error" role="alert"></p>
+         </form>
+     </div>
+ 
++    <div id="create-plan-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-plan-title" hidden>
++        <form id="create-plan-form" class="modal-card">
++            <header class="modal-header">
++                <h2 id="create-plan-title">Adicionar novo curso</h2>
++                <p class="panel-subtitle">Crie rapidamente uma disciplina com o primeiro tópico a ser estudado.</p>
++            </header>
++            <label class="modal-field" for="course_title">
++                <span>Nome do curso</span>
++                <input id="course_title" name="course_title" type="text" required placeholder="Ex.: Cálculo I" />
++            </label>
++            <label class="modal-field" for="topic_title">
++                <span>Primeiro tópico</span>
++                <input id="topic_title" name="topic_title" type="text" required placeholder="Ex.: Limites e Derivadas" />
++            </label>
++            <label class="modal-field" for="course_description">
++                <span>Descrição (opcional)</span>
++                <textarea id="course_description" name="course_description" rows="3" placeholder="Inclua detalhes ou objetivos para este curso"></textarea>
++            </label>
++            <p id="create-plan-error" class="form-error" role="alert"></p>
++            <div class="modal-actions">
++                <button id="cancel-create-plan" class="ghost-button" type="button">Cancelar</button>
++                <button id="submit-create-plan" class="primary-button" type="submit">Criar curso</button>
++            </div>
++        </form>
++    </div>
++
+     <template id="session-item-template">
+         <li class="session-item">
+             <div class="session-date"></div>
+             <div class="session-info">
+                 <p class="session-message"></p>
+                 <span class="session-duration"></span>
+             </div>
+         </li>
+     </template>
+ 
+     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+     <script src="js/dashboard.js" type="module"></script>
+ </body>
+ </html>
+diff --git a/frontend/js/dashboard.js b/frontend/js/dashboard.js
+index e38389254ee87418101e8289ee592bbc43544ece..66bd169767dce30f17f8c2c58562efe6fde12f81 100644
+--- a/frontend/js/dashboard.js
++++ b/frontend/js/dashboard.js
+@@ -1,55 +1,96 @@
+ const API_BASE_URL = (document.body.dataset.apiBase || 'http://localhost:8000/api').replace(/\/$/, '');
+ const STORAGE_KEY = 'pi2-dashboard-auth';
+ 
+ const selectors = {
+     loginOverlay: document.getElementById('login-overlay'),
+     loginForm: document.getElementById('login-form'),
+     loginError: document.getElementById('login-error'),
+     logoutButton: document.getElementById('logout-button'),
+     greeting: document.getElementById('user-greeting'),
+     coursesCount: document.getElementById('courses-count'),
+     topicsInProgress: document.getElementById('topics-in-progress'),
+     quizzesCompleted: document.getElementById('quizzes-completed'),
+     streakInfo: document.getElementById('streak-info'),
+     studyTotal: document.getElementById('study-total'),
+     chartCanvas: document.getElementById('study-time-chart'),
+     sessionsList: document.getElementById('upcoming-sessions'),
+     sessionTemplate: document.getElementById('session-item-template'),
+     recommendedQuiz: document.getElementById('recommended-quiz'),
+     progressPercentage: document.getElementById('progress-percentage'),
+     progressDetail: document.getElementById('progress-detail'),
+     progressRing: document.querySelector('.progress-ring__progress'),
++    courseLibraryList: document.getElementById('course-library-list'),
++    courseLibraryEmpty: document.getElementById('course-library-empty'),
++    courseStatusFilter: document.getElementById('course-status-filter'),
++    courseSortOrder: document.getElementById('course-sort-order'),
++    addCourseButton: document.getElementById('add-course-button'),
++    createPlanModal: document.getElementById('create-plan-modal'),
++    createPlanForm: document.getElementById('create-plan-form'),
++    createPlanError: document.getElementById('create-plan-error'),
++    createPlanCancel: document.getElementById('cancel-create-plan'),
++    createPlanSubmit: document.getElementById('submit-create-plan'),
+ };
+ 
+ const state = {
+     chart: null,
++    courseLibrary: [],
+ };
+ 
+ document.addEventListener('DOMContentLoaded', () => {
+     selectors.loginForm.addEventListener('submit', handleLoginSubmit);
+     selectors.logoutButton.addEventListener('click', handleLogout);
++
++    if (selectors.courseStatusFilter) {
++        selectors.courseStatusFilter.addEventListener('change', renderCourseLibrary);
++    }
++    if (selectors.courseSortOrder) {
++        selectors.courseSortOrder.addEventListener('change', renderCourseLibrary);
++    }
++    if (selectors.addCourseButton) {
++        selectors.addCourseButton.addEventListener('click', openCreatePlanModal);
++    }
++    if (selectors.createPlanCancel) {
++        selectors.createPlanCancel.addEventListener('click', closeCreatePlanModal);
++    }
++    if (selectors.createPlanForm) {
++        selectors.createPlanForm.addEventListener('submit', handleCreatePlanSubmit);
++    }
++    if (selectors.createPlanModal) {
++        selectors.createPlanModal.addEventListener('click', (event) => {
++            if (event.target === selectors.createPlanModal) {
++                closeCreatePlanModal();
++            }
++        });
++    }
++
++    document.addEventListener('keydown', (event) => {
++        if (event.key === 'Escape' && isCreatePlanModalOpen()) {
++            closeCreatePlanModal();
++        }
++    });
++
+     restoreSession();
+ });
+ 
+ function restoreSession() {
+     const tokens = loadTokens();
+     if (!tokens?.access) {
+         showLogin();
+         return;
+     }
+ 
+     loadDashboard().catch((error) => {
+         console.error('Falha ao restaurar sessão:', error);
+         clearTokens();
+         showLogin('Sua sessão expirou. Entre novamente.');
+     });
+ }
+ 
+ async function handleLoginSubmit(event) {
+     event.preventDefault();
+     selectors.loginError.textContent = '';
+ 
+     const formData = new FormData(selectors.loginForm);
+     const email = formData.get('email');
+     const password = formData.get('password');
+ 
+@@ -97,50 +138,51 @@ function hideLogin() {
+     selectors.loginOverlay.hidden = true;
+ }
+ 
+ async function loadDashboard() {
+     const [user, courses, attempts, logs, reminders, recommended, engagement] = await Promise.all([
+         apiFetch('/accounts/auth/users/me/'),
+         apiFetch('/learning/courses/'),
+         apiFetch('/assessment/attempts/'),
+         apiFetch('/scheduling/logs/'),
+         apiFetch('/scheduling/reminders/'),
+         apiFetch('/assessment/quizzes/recommended/', {}, { allowEmpty: true }),
+         apiFetch('/analytics/engagement-metrics/'),
+     ]);
+ 
+     updateGreeting(user);
+ 
+     const summary = buildSummaryStats(courses, attempts, engagement);
+     renderSummary(summary);
+ 
+     const studySeries = buildStudySeries(logs);
+     renderStudyChart(studySeries);
+ 
+     renderSessions(reminders?.reminders || []);
+     renderRecommendedQuiz(recommended);
+     renderProgress(summary.progress);
++    updateCourseLibrary(courses);
+ }
+ 
+ function updateGreeting(user) {
+     if (!user) {
+         selectors.greeting.textContent = 'Olá!';
+         return;
+     }
+     const name = user.first_name?.trim() || user.username || user.email || 'Estudante';
+     selectors.greeting.textContent = `Olá, ${name}!`;
+ }
+ 
+ function renderSummary(summary) {
+     selectors.coursesCount.textContent = summary.totalCourses;
+     selectors.topicsInProgress.textContent = summary.topicsInProgress;
+     selectors.quizzesCompleted.textContent = summary.quizzesCompleted;
+     if (summary.streak.current || summary.streak.best) {
+         selectors.streakInfo.textContent = `${summary.streak.current} dia(s) • Recorde ${summary.streak.best}`;
+     } else {
+         selectors.streakInfo.textContent = 'Nenhum registro recente';
+     }
+ 
+     selectors.studyTotal.textContent = `${summary.studyTotal} minutos totais`;
+ }
+ 
+ function renderProgress(progress) {
+@@ -260,147 +302,299 @@ function renderRecommendedQuiz(payload) {
+         const topic = document.createElement('span');
+         topic.className = 'panel-subtitle';
+         topic.textContent = `Tópico: ${quiz.topic_title}`;
+         container.appendChild(topic);
+     }
+ 
+     if (quiz.description) {
+         const description = document.createElement('p');
+         description.textContent = quiz.description;
+         container.appendChild(description);
+     }
+ 
+     if (message) {
+         const recommendation = document.createElement('p');
+         recommendation.className = 'panel-subtitle';
+         recommendation.textContent = message;
+         container.appendChild(recommendation);
+     }
+ 
+     const link = document.createElement('a');
+     link.href = `#/quizzes/${quiz.id}`;
+     link.textContent = 'Ver detalhes do quiz';
+     container.appendChild(link);
+ }
+ 
+-function buildSummaryStats(coursesData, attemptsData, engagement) {
+-    const courses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
+-    const attempts = Array.isArray(attemptsData?.results) ? attemptsData.results : attemptsData || [];
++function updateCourseLibrary(coursesData) {
++    if (!selectors.courseLibraryList) {
++        return;
++    }
++
++    const rawCourses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
++    state.courseLibrary = rawCourses.map((course) => decorateCourse(course));
++    renderCourseLibrary();
++}
+ 
+-    let totalCourses = courses.length;
+-    let topicsInProgress = 0;
++function decorateCourse(course) {
++    const topics = Array.isArray(course?.topics) ? course.topics : [];
+     let totalSubtopics = 0;
+     let completedSubtopics = 0;
+ 
+-    courses.forEach((course) => {
+-        const topics = course.topics || [];
+-        topics.forEach((topic) => {
+-            const subtopics = topic.subtopics || [];
+-            const completed = subtopics.filter((sub) => sub.is_completed).length;
+-            if (subtopics.length > 0 && completed < subtopics.length) {
+-                topicsInProgress += 1;
+-            }
+-            totalSubtopics += subtopics.length;
+-            completedSubtopics += completed;
+-        });
++    topics.forEach((topic) => {
++        const subtopics = Array.isArray(topic?.subtopics) ? topic.subtopics : [];
++        totalSubtopics += subtopics.length;
++        completedSubtopics += subtopics.filter((item) => item?.is_completed).length;
+     });
+ 
+     const percentage = totalSubtopics === 0 ? 0 : Math.round((completedSubtopics / totalSubtopics) * 100);
+-    const studyTotal = calculateStudyTotalMinutes(engagement);
++    const status = totalSubtopics > 0 && completedSubtopics === totalSubtopics ? 'completed' : 'in-progress';
+ 
+     return {
+-        totalCourses,
+-        topicsInProgress,
+-        quizzesCompleted: attempts.length,
+-        studyTotal,
+-        streak: {
+-            current: engagement?.current_streak || 0,
+-            best: engagement?.best_streak || 0,
+-        },
+-        progress: {
+-            total: totalSubtopics,
+-            completed: completedSubtopics,
+-            percentage,
+-        },
++        ...course,
++        topics,
++        totalSubtopics,
++        completedSubtopics,
++        progressPercentage: percentage,
++        status,
+     };
+ }
+ 
+-function calculateStudyTotalMinutes(engagement) {
+-    const total = engagement?.total_minutes_last_7_days;
+-    return typeof total === 'number' && !Number.isNaN(total) ? total : 0;
+-}
++function renderCourseLibrary() {
++    if (!selectors.courseLibraryList) {
++        return;
++    }
+ 
+-function buildStudySeries(logsData) {
+-    const logs = Array.isArray(logsData?.results) ? logsData.results : logsData || [];
+-    const today = new Date();
+-    const days = [];
+-    for (let offset = 6; offset >= 0; offset -= 1) {
+-        const date = new Date(today);
+-        date.setDate(today.getDate() - offset);
+-        days.push(date);
++    const statusValue = selectors.courseStatusFilter?.value || 'all';
++    const filteredCourses = getFilteredCourses();
++    selectors.courseLibraryList.innerHTML = '';
++
++    if (!filteredCourses.length) {
++        if (selectors.courseLibraryEmpty) {
++            const message = statusValue === 'all'
++                ? 'Nenhum curso cadastrado ainda. Adicione uma disciplina para começar seu plano de estudos.'
++                : 'Nenhum curso encontrado para os filtros selecionados.';
++            selectors.courseLibraryEmpty.textContent = message;
++            selectors.courseLibraryEmpty.hidden = false;
++        }
++        return;
+     }
+ 
+-    const minutesPerDay = new Map(days.map((date) => [formatIsoDate(date), 0]));
++    if (selectors.courseLibraryEmpty) {
++        selectors.courseLibraryEmpty.hidden = true;
++    }
+ 
+-    logs.forEach((log) => {
+-        if (!log.date || typeof log.minutes_studied !== 'number') {
+-            return;
+-        }
+-        const dayKey = log.date;
+-        if (minutesPerDay.has(dayKey)) {
+-            const current = minutesPerDay.get(dayKey) ?? 0;
+-            minutesPerDay.set(dayKey, current + log.minutes_studied);
+-        }
++    const fragment = document.createDocumentFragment();
++    filteredCourses.forEach((course) => {
++        fragment.appendChild(buildCourseCard(course));
+     });
+ 
+-    const formatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit' });
+-    const labels = [];
+-    const values = [];
++    selectors.courseLibraryList.appendChild(fragment);
++}
++
++function getFilteredCourses() {
++    const status = selectors.courseStatusFilter?.value || 'all';
++    const sortOrder = selectors.courseSortOrder?.value || 'alphabetical';
++
++    let courses = [...state.courseLibrary];
++
++    if (status !== 'all') {
++        courses = courses.filter((course) => course.status === status);
++    }
+ 
+-    minutesPerDay.forEach((minutes, isoDate) => {
+-        const date = new Date(`${isoDate}T00:00:00`);
+-        labels.push(capitalize(formatter.format(date)));
+-        values.push(minutes);
++    courses.sort((a, b) => {
++        if (sortOrder === 'recent') {
++            const aDate = parseDate(a.updated_at || a.created_at);
++            const bDate = parseDate(b.updated_at || b.created_at);
++            return bDate - aDate;
++        }
++        return a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' });
+     });
+ 
+-    const studyTotal = Array.from(minutesPerDay.values()).reduce((acc, value) => acc + value, 0);
+-    selectors.studyTotal.textContent = `${studyTotal} minutos totais`;
++    return courses;
++}
++
++function buildCourseCard(course) {
++    const card = document.createElement('article');
++    card.className = 'course-card';
++
++    const header = document.createElement('div');
++    header.className = 'course-card-header';
+ 
+-    return { labels, values };
++    const title = document.createElement('h3');
++    title.textContent = course.title;
++    header.appendChild(title);
++
++    const statusBadge = document.createElement('span');
++    statusBadge.className = `course-status ${course.status === 'completed' ? 'course-status--completed' : ''}`;
++    statusBadge.textContent = course.status === 'completed' ? 'Concluído' : 'Em andamento';
++    header.appendChild(statusBadge);
++
++    card.appendChild(header);
++
++    if (course.description) {
++        const description = document.createElement('p');
++        description.className = 'course-card-description';
++        description.textContent = course.description;
++        card.appendChild(description);
++    }
++
++    const progress = document.createElement('div');
++    progress.className = 'course-progress';
++
++    const summary = document.createElement('span');
++    summary.className = 'course-progress-summary';
++    summary.textContent = `${course.progressPercentage}% concluído`;
++    progress.appendChild(summary);
++
++    const bar = document.createElement('div');
++    bar.className = 'course-progress-bar';
++    const fill = document.createElement('div');
++    fill.className = 'course-progress-fill';
++    fill.style.width = `${course.progressPercentage}%`;
++    bar.appendChild(fill);
++    progress.appendChild(bar);
++
++    const detail = document.createElement('span');
++    detail.className = 'course-progress-detail';
++    detail.textContent = course.totalSubtopics
++        ? `${course.completedSubtopics} de ${course.totalSubtopics} subtópicos`
++        : 'Nenhum subtópico cadastrado';
++    progress.appendChild(detail);
++
++    card.appendChild(progress);
++
++    const metadata = document.createElement('ul');
++    metadata.className = 'course-metadata';
++
++    const topicsItem = document.createElement('li');
++    topicsItem.textContent = `${course.topics.length} tópico(s)`;
++    metadata.appendChild(topicsItem);
++
++    const formattedDate = formatHumanDate(course.updated_at || course.created_at);
++    if (formattedDate) {
++        const updatedItem = document.createElement('li');
++        updatedItem.textContent = `Atualizado em ${formattedDate}`;
++        metadata.appendChild(updatedItem);
++    }
++
++    card.appendChild(metadata);
++
++    return card;
++}
++
++function parseDate(value) {
++    if (!value) {
++        return 0;
++    }
++    const date = new Date(value);
++    return Number.isNaN(date.valueOf()) ? 0 : date.valueOf();
++}
++
++function formatHumanDate(value) {
++    if (!value) {
++        return '';
++    }
++    const date = new Date(value);
++    if (Number.isNaN(date.valueOf())) {
++        return '';
++    }
++    return new Intl.DateTimeFormat('pt-BR', {
++        day: '2-digit',
++        month: 'short',
++        year: 'numeric',
++    }).format(date);
++}
++
++function openCreatePlanModal() {
++    if (!selectors.createPlanModal) {
++        return;
++    }
++    selectors.createPlanError.textContent = '';
++    selectors.createPlanForm?.reset();
++    selectors.createPlanModal.hidden = false;
++    document.body.classList.add('modal-open');
++    const firstInput = selectors.createPlanForm?.querySelector('input, textarea');
++    firstInput?.focus();
+ }
+ 
+-function capitalize(text) {
+-    return text.charAt(0).toUpperCase() + text.slice(1);
++function closeCreatePlanModal() {
++    if (!selectors.createPlanModal) {
++        return;
++    }
++    selectors.createPlanModal.hidden = true;
++    document.body.classList.remove('modal-open');
++    selectors.createPlanError.textContent = '';
+ }
+ 
+-function formatIsoDate(date) {
+-    const year = date.getFullYear();
+-    const month = String(date.getMonth() + 1).padStart(2, '0');
+-    const day = String(date.getDate()).padStart(2, '0');
+-    return `${year}-${month}-${day}`;
++function isCreatePlanModalOpen() {
++    return Boolean(selectors.createPlanModal && !selectors.createPlanModal.hidden);
+ }
+ 
++async function handleCreatePlanSubmit(event) {
++    event.preventDefault();
++    if (!selectors.createPlanForm) {
++        return;
++    }
++
++    selectors.createPlanError.textContent = '';
++
++    const formData = new FormData(selectors.createPlanForm);
++    const payload = {
++        course_title: (formData.get('course_title') || '').toString().trim(),
++        topic_title: (formData.get('topic_title') || '').toString().trim(),
++        course_description: (formData.get('course_description') || '').toString().trim(),
++    };
++
++    if (!payload.course_title || !payload.topic_title) {
++        selectors.createPlanError.textContent = 'Informe o nome do curso e o primeiro tópico.';
++        return;
++    }
++
++    const submitButton = selectors.createPlanSubmit;
++    const originalLabel = submitButton?.textContent;
++    if (submitButton) {
++        submitButton.disabled = true;
++        submitButton.textContent = 'Criando...';
++    }
++
++    try {
++        await apiFetch('/learning/create-study-plan/', {
++            method: 'POST',
++            body: JSON.stringify(payload),
++        });
++        await loadDashboard();
++        closeCreatePlanModal();
++    } catch (error) {
++        console.error('Erro ao criar curso:', error);
++        selectors.createPlanError.textContent = error.message || 'Não foi possível criar o curso.';
++    } finally {
++        if (submitButton) {
++            submitButton.disabled = false;
++            submitButton.textContent = originalLabel || 'Criar curso';
++        }
++    }
++}
+ async function apiFetch(path, options = {}, { allowEmpty = false, retryOn401 = true } = {}) {
+     const tokens = loadTokens();
+     if (!tokens?.access) {
+         throw new Error('Sessão inválida');
+     }
+ 
+     const headers = new Headers(options.headers || {});
+     headers.set('Authorization', `Bearer ${tokens.access}`);
+     headers.set('Accept', 'application/json');
+     if (options.body && !headers.has('Content-Type')) {
+         headers.set('Content-Type', 'application/json');
+     }
+ 
+     const response = await fetch(`${API_BASE_URL}${path}`, {
+         ...options,
+         headers,
+     });
+ 
+     if (response.status === 401 && retryOn401) {
+         const refreshed = await refreshAccessToken();
+         if (!refreshed) {
+             throw new Error('Sessão expirada');
+         }
+         return apiFetch(path, options, { allowEmpty, retryOn401: false });
+     }
+diff --git a/frontend/styles/dashboard.css b/frontend/styles/dashboard.css
+index bc66c346ffea4055bb4cfc45d331b100096ae9a3..08ad2a0f769d41df852662a4253df1fd24086ff3 100644
+--- a/frontend/styles/dashboard.css
++++ b/frontend/styles/dashboard.css
+@@ -133,50 +133,267 @@ body {
+     height: 3rem;
+     display: grid;
+     place-items: center;
+     background: var(--primary-muted);
+     border-radius: 12px;
+     font-size: 1.5rem;
+ }
+ 
+ .summary-card h2 {
+     font-size: 0.95rem;
+     color: var(--text-muted);
+     margin-bottom: 0.35rem;
+ }
+ 
+ .summary-value {
+     font-size: 1.6rem;
+     font-weight: 700;
+ }
+ 
+ .grid-layout {
+     display: grid;
+     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+     gap: 1.5rem;
+ }
+ 
++.course-library-panel {
++    gap: 1.5rem;
++}
++
++.course-library-header {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1rem;
++    flex-wrap: wrap;
++}
++
++.course-library-controls {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 1rem;
++}
++
++.filter-field {
++    display: flex;
++    flex-direction: column;
++    gap: 0.35rem;
++    font-size: 0.9rem;
++    color: var(--text-muted);
++    min-width: 180px;
++}
++
++.library-select {
++    padding: 0.6rem 0.75rem;
++    border-radius: 12px;
++    border: 1px solid rgba(148, 163, 184, 0.4);
++    background: rgba(248, 250, 252, 0.9);
++    font-size: 0.95rem;
++    color: var(--text);
++}
++
++.library-select:focus {
++    outline: 2px solid rgba(76, 110, 245, 0.35);
++    outline-offset: 2px;
++}
++
++.course-library-empty {
++    padding: 1.2rem;
++    border-radius: 14px;
++    background: var(--surface-alt);
++    border: 1px dashed rgba(76, 110, 245, 0.25);
++    text-align: center;
++    color: var(--text-muted);
++    font-size: 0.95rem;
++}
++
++.course-library-grid {
++    display: grid;
++    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
++    gap: 1.25rem;
++}
++
++.course-card {
++    background: var(--surface-alt);
++    border-radius: 16px;
++    border: 1px solid rgba(76, 110, 245, 0.12);
++    padding: 1.4rem;
++    display: flex;
++    flex-direction: column;
++    gap: 0.85rem;
++    min-height: 220px;
++}
++
++.course-card-header {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 0.75rem;
++}
++
++.course-card h3 {
++    font-size: 1.05rem;
++    line-height: 1.35;
++}
++
++.course-card-description {
++    color: var(--text-muted);
++    font-size: 0.95rem;
++    line-height: 1.5;
++}
++
++.course-progress {
++    display: flex;
++    flex-direction: column;
++    gap: 0.45rem;
++}
++
++.course-progress-summary {
++    font-weight: 600;
++}
++
++.course-progress-bar {
++    width: 100%;
++    height: 0.5rem;
++    background: rgba(148, 163, 184, 0.25);
++    border-radius: 999px;
++    overflow: hidden;
++}
++
++.course-progress-fill {
++    height: 100%;
++    border-radius: 999px;
++    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
++    transition: width 200ms ease;
++}
++
++.course-progress-detail {
++    color: var(--text-muted);
++    font-size: 0.9rem;
++}
++
++.course-metadata {
++    list-style: none;
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.75rem;
++    color: var(--text-muted);
++    font-size: 0.85rem;
++}
++
++.course-status {
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    font-size: 0.75rem;
++    font-weight: 600;
++    letter-spacing: 0.04em;
++    text-transform: uppercase;
++    padding: 0.25rem 0.7rem;
++    border-radius: 999px;
++    background: rgba(76, 110, 245, 0.12);
++    color: var(--primary-dark);
++    white-space: nowrap;
++}
++
++.course-status--completed {
++    background: rgba(46, 204, 113, 0.12);
++    color: var(--success);
++}
++
++.primary-button--small {
++    padding: 0.65rem 1rem;
++    font-size: 0.95rem;
++}
++
++.modal-overlay {
++    position: fixed;
++    inset: 0;
++    display: grid;
++    place-items: center;
++    background: rgba(15, 23, 42, 0.55);
++    backdrop-filter: blur(6px);
++    padding: 1.5rem;
++    z-index: 30;
++}
++
++.modal-overlay[hidden] {
++    display: none;
++}
++
++.modal-card {
++    width: min(460px, 95vw);
++    display: flex;
++    flex-direction: column;
++    gap: 1rem;
++    padding: 2rem;
++    border-radius: 18px;
++    background: var(--surface);
++    border: 1px solid var(--border);
++    box-shadow: var(--shadow);
++}
++
++.modal-header {
++    display: flex;
++    flex-direction: column;
++    gap: 0.35rem;
++}
++
++.modal-field {
++    display: flex;
++    flex-direction: column;
++    gap: 0.4rem;
++}
++
++.modal-field span {
++    font-size: 0.85rem;
++    font-weight: 600;
++    color: var(--text);
++}
++
++.modal-field input,
++.modal-field textarea {
++    width: 100%;
++    padding: 0.75rem 0.9rem;
++    border-radius: 12px;
++    border: 1px solid rgba(148, 163, 184, 0.4);
++    background: rgba(248, 250, 252, 0.9);
++    font-size: 1rem;
++    resize: vertical;
++}
++
++.modal-actions {
++    display: flex;
++    justify-content: flex-end;
++    gap: 0.75rem;
++    margin-top: 0.5rem;
++}
++
++body.modal-open {
++    overflow: hidden;
++}
++
+ .panel {
+     background: var(--surface);
+     border-radius: 18px;
+     border: 1px solid var(--border);
+     padding: 1.75rem;
+     box-shadow: var(--shadow);
+     display: flex;
+     flex-direction: column;
+     gap: 1.25rem;
+ }
+ 
+ .panel header {
+     display: flex;
+     flex-direction: column;
+     gap: 0.35rem;
+ }
+ 
+ .panel h2 {
+     font-size: 1.1rem;
+     font-weight: 600;
+ }
+ 
+ .panel-subtitle {
+     font-size: 0.9rem;
+     color: var(--text-muted);
+    }

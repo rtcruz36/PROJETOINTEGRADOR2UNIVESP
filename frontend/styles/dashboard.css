@@ -155,6 +155,223 @@ body {
     gap: 1.5rem;
 }
 
+.course-library-panel {
+    gap: 1.5rem;
+}
+
+.course-library-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.course-library-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    min-width: 180px;
+}
+
+.library-select {
+    padding: 0.6rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(248, 250, 252, 0.9);
+    font-size: 0.95rem;
+    color: var(--text);
+}
+
+.library-select:focus {
+    outline: 2px solid rgba(76, 110, 245, 0.35);
+    outline-offset: 2px;
+}
+
+.course-library-empty {
+    padding: 1.2rem;
+    border-radius: 14px;
+    background: var(--surface-alt);
+    border: 1px dashed rgba(76, 110, 245, 0.25);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.course-library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+}
+
+.course-card {
+    background: var(--surface-alt);
+    border-radius: 16px;
+    border: 1px solid rgba(76, 110, 245, 0.12);
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-height: 220px;
+}
+
+.course-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.course-card h3 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+}
+
+.course-card-description {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.course-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.course-progress-summary {
+    font-weight: 600;
+}
+
+.course-progress-bar {
+    width: 100%;
+    height: 0.5rem;
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.course-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    transition: width 200ms ease;
+}
+
+.course-progress-detail {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.course-metadata {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.course-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(76, 110, 245, 0.12);
+    color: var(--primary-dark);
+    white-space: nowrap;
+}
+
+.course-status--completed {
+    background: rgba(46, 204, 113, 0.12);
+    color: var(--success);
+}
+
+.primary-button--small {
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(6px);
+    padding: 1.5rem;
+    z-index: 30;
+}
+
+.modal-overlay[hidden] {
+    display: none;
+}
+
+.modal-card {
+    width: min(460px, 95vw);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.modal-field span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.modal-field input,
+.modal-field textarea {
+    width: 100%;
+    padding: 0.75rem 0.9rem;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(248, 250, 252, 0.9);
+    font-size: 1rem;
+    resize: vertical;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
 .panel {
     background: var(--surface);
     border-radius: 18px;

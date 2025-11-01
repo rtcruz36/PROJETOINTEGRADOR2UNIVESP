@@ -19,15 +19,56 @@ const selectors = {
     progressPercentage: document.getElementById('progress-percentage'),
     progressDetail: document.getElementById('progress-detail'),
     progressRing: document.querySelector('.progress-ring__progress'),
+    courseLibraryList: document.getElementById('course-library-list'),
+    courseLibraryEmpty: document.getElementById('course-library-empty'),
+    courseStatusFilter: document.getElementById('course-status-filter'),
+    courseSortOrder: document.getElementById('course-sort-order'),
+    addCourseButton: document.getElementById('add-course-button'),
+    createPlanModal: document.getElementById('create-plan-modal'),
+    createPlanForm: document.getElementById('create-plan-form'),
+    createPlanError: document.getElementById('create-plan-error'),
+    createPlanCancel: document.getElementById('cancel-create-plan'),
+    createPlanSubmit: document.getElementById('submit-create-plan'),
 };
 
 const state = {
     chart: null,
+    courseLibrary: [],
 };
 
 document.addEventListener('DOMContentLoaded', () => {
     selectors.loginForm.addEventListener('submit', handleLoginSubmit);
     selectors.logoutButton.addEventListener('click', handleLogout);
+
+    if (selectors.courseStatusFilter) {
+        selectors.courseStatusFilter.addEventListener('change', renderCourseLibrary);
+    }
+    if (selectors.courseSortOrder) {
+        selectors.courseSortOrder.addEventListener('change', renderCourseLibrary);
+    }
+    if (selectors.addCourseButton) {
+        selectors.addCourseButton.addEventListener('click', openCreatePlanModal);
+    }
+    if (selectors.createPlanCancel) {
+        selectors.createPlanCancel.addEventListener('click', closeCreatePlanModal);
+    }
+    if (selectors.createPlanForm) {
+        selectors.createPlanForm.addEventListener('submit', handleCreatePlanSubmit);
+    }
+    if (selectors.createPlanModal) {
+        selectors.createPlanModal.addEventListener('click', (event) => {
+            if (event.target === selectors.createPlanModal) {
+                closeCreatePlanModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && isCreatePlanModalOpen()) {
+            closeCreatePlanModal();
+        }
+    });
+
     restoreSession();
 });
 
@@ -119,6 +160,7 @@ async function loadDashboard() {
     renderSessions(reminders?.reminders || []);
     renderRecommendedQuiz(recommended);
     renderProgress(summary.progress);
+    updateCourseLibrary(courses);
 }
 
 function updateGreeting(user) {
@@ -282,103 +324,255 @@ function renderRecommendedQuiz(payload) {
     container.appendChild(link);
 }
 
-function buildSummaryStats(coursesData, attemptsData, engagement) {
-    const courses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
-    const attempts = Array.isArray(attemptsData?.results) ? attemptsData.results : attemptsData || [];
+function updateCourseLibrary(coursesData) {
+    if (!selectors.courseLibraryList) {
+        return;
+    }
 
-    let totalCourses = courses.length;
-    let topicsInProgress = 0;
+    const rawCourses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
+    state.courseLibrary = rawCourses.map((course) => decorateCourse(course));
+    renderCourseLibrary();
+}
+
+function decorateCourse(course) {
+    const topics = Array.isArray(course?.topics) ? course.topics : [];
     let totalSubtopics = 0;
     let completedSubtopics = 0;
 
-    courses.forEach((course) => {
-        const topics = course.topics || [];
-        topics.forEach((topic) => {
-            const subtopics = topic.subtopics || [];
-            const completed = subtopics.filter((sub) => sub.is_completed).length;
-            if (subtopics.length > 0 && completed < subtopics.length) {
-                topicsInProgress += 1;
-            }
-            totalSubtopics += subtopics.length;
-            completedSubtopics += completed;
-        });
+    topics.forEach((topic) => {
+        const subtopics = Array.isArray(topic?.subtopics) ? topic.subtopics : [];
+        totalSubtopics += subtopics.length;
+        completedSubtopics += subtopics.filter((item) => item?.is_completed).length;
     });
 
     const percentage = totalSubtopics === 0 ? 0 : Math.round((completedSubtopics / totalSubtopics) * 100);
-    const studyTotal = calculateStudyTotalMinutes(engagement);
+    const status = totalSubtopics > 0 && completedSubtopics === totalSubtopics ? 'completed' : 'in-progress';
 
     return {
-        totalCourses,
-        topicsInProgress,
-        quizzesCompleted: attempts.length,
-        studyTotal,
-        streak: {
-            current: engagement?.current_streak || 0,
-            best: engagement?.best_streak || 0,
-        },
-        progress: {
-            total: totalSubtopics,
-            completed: completedSubtopics,
-            percentage,
-        },
+        ...course,
+        topics,
+        totalSubtopics,
+        completedSubtopics,
+        progressPercentage: percentage,
+        status,
     };
 }
 
-function calculateStudyTotalMinutes(engagement) {
-    const total = engagement?.total_minutes_last_7_days;
-    return typeof total === 'number' && !Number.isNaN(total) ? total : 0;
-}
-
-function buildStudySeries(logsData) {
-    const logs = Array.isArray(logsData?.results) ? logsData.results : logsData || [];
-    const today = new Date();
-    const days = [];
-    for (let offset = 6; offset >= 0; offset -= 1) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - offset);
-        days.push(date);
+function renderCourseLibrary() {
+    if (!selectors.courseLibraryList) {
+        return;
     }
 
-    const minutesPerDay = new Map(days.map((date) => [formatIsoDate(date), 0]));
+    const statusValue = selectors.courseStatusFilter?.value || 'all';
+    const filteredCourses = getFilteredCourses();
+    selectors.courseLibraryList.innerHTML = '';
 
-    logs.forEach((log) => {
-        if (!log.date || typeof log.minutes_studied !== 'number') {
-            return;
+    if (!filteredCourses.length) {
+        if (selectors.courseLibraryEmpty) {
+            const message = statusValue === 'all'
+                ? 'Nenhum curso cadastrado ainda. Adicione uma disciplina para começar seu plano de estudos.'
+                : 'Nenhum curso encontrado para os filtros selecionados.';
+            selectors.courseLibraryEmpty.textContent = message;
+            selectors.courseLibraryEmpty.hidden = false;
         }
-        const dayKey = log.date;
-        if (minutesPerDay.has(dayKey)) {
-            const current = minutesPerDay.get(dayKey) ?? 0;
-            minutesPerDay.set(dayKey, current + log.minutes_studied);
-        }
+        return;
+    }
+
+    if (selectors.courseLibraryEmpty) {
+        selectors.courseLibraryEmpty.hidden = true;
+    }
+
+    const fragment = document.createDocumentFragment();
+    filteredCourses.forEach((course) => {
+        fragment.appendChild(buildCourseCard(course));
     });
 
-    const formatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit' });
-    const labels = [];
-    const values = [];
+    selectors.courseLibraryList.appendChild(fragment);
+}
 
-    minutesPerDay.forEach((minutes, isoDate) => {
-        const date = new Date(`${isoDate}T00:00:00`);
-        labels.push(capitalize(formatter.format(date)));
-        values.push(minutes);
+function getFilteredCourses() {
+    const status = selectors.courseStatusFilter?.value || 'all';
+    const sortOrder = selectors.courseSortOrder?.value || 'alphabetical';
+
+    let courses = [...state.courseLibrary];
+
+    if (status !== 'all') {
+        courses = courses.filter((course) => course.status === status);
+    }
+
+    courses.sort((a, b) => {
+        if (sortOrder === 'recent') {
+            const aDate = parseDate(a.updated_at || a.created_at);
+            const bDate = parseDate(b.updated_at || b.created_at);
+            return bDate - aDate;
+        }
+        return a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' });
     });
 
-    const studyTotal = Array.from(minutesPerDay.values()).reduce((acc, value) => acc + value, 0);
-    selectors.studyTotal.textContent = `${studyTotal} minutos totais`;
-
-    return { labels, values };
+    return courses;
 }
 
-function capitalize(text) {
-    return text.charAt(0).toUpperCase() + text.slice(1);
+function buildCourseCard(course) {
+    const card = document.createElement('article');
+    card.className = 'course-card';
+
+    const header = document.createElement('div');
+    header.className = 'course-card-header';
+
+    const title = document.createElement('h3');
+    title.textContent = course.title;
+    header.appendChild(title);
+
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `course-status ${course.status === 'completed' ? 'course-status--completed' : ''}`;
+    statusBadge.textContent = course.status === 'completed' ? 'Concluído' : 'Em andamento';
+    header.appendChild(statusBadge);
+
+    card.appendChild(header);
+
+    if (course.description) {
+        const description = document.createElement('p');
+        description.className = 'course-card-description';
+        description.textContent = course.description;
+        card.appendChild(description);
+    }
+
+    const progress = document.createElement('div');
+    progress.className = 'course-progress';
+
+    const summary = document.createElement('span');
+    summary.className = 'course-progress-summary';
+    summary.textContent = `${course.progressPercentage}% concluído`;
+    progress.appendChild(summary);
+
+    const bar = document.createElement('div');
+    bar.className = 'course-progress-bar';
+    const fill = document.createElement('div');
+    fill.className = 'course-progress-fill';
+    fill.style.width = `${course.progressPercentage}%`;
+    bar.appendChild(fill);
+    progress.appendChild(bar);
+
+    const detail = document.createElement('span');
+    detail.className = 'course-progress-detail';
+    detail.textContent = course.totalSubtopics
+        ? `${course.completedSubtopics} de ${course.totalSubtopics} subtópicos`
+        : 'Nenhum subtópico cadastrado';
+    progress.appendChild(detail);
+
+    card.appendChild(progress);
+
+    const metadata = document.createElement('ul');
+    metadata.className = 'course-metadata';
+
+    const topicsItem = document.createElement('li');
+    topicsItem.textContent = `${course.topics.length} tópico(s)`;
+    metadata.appendChild(topicsItem);
+
+    const formattedDate = formatHumanDate(course.updated_at || course.created_at);
+    if (formattedDate) {
+        const updatedItem = document.createElement('li');
+        updatedItem.textContent = `Atualizado em ${formattedDate}`;
+        metadata.appendChild(updatedItem);
+    }
+
+    card.appendChild(metadata);
+
+    return card;
 }
 
-function formatIsoDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function parseDate(value) {
+    if (!value) {
+        return 0;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.valueOf()) ? 0 : date.valueOf();
 }
 
+function formatHumanDate(value) {
+    if (!value) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.valueOf())) {
+        return '';
+    }
+    return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(date);
+}
+
+function openCreatePlanModal() {
+    if (!selectors.createPlanModal) {
+        return;
+    }
+    selectors.createPlanError.textContent = '';
+    selectors.createPlanForm?.reset();
+    selectors.createPlanModal.hidden = false;
+    document.body.classList.add('modal-open');
+    const firstInput = selectors.createPlanForm?.querySelector('input, textarea');
+    firstInput?.focus();
+}
+
+function closeCreatePlanModal() {
+    if (!selectors.createPlanModal) {
+        return;
+    }
+    selectors.createPlanModal.hidden = true;
+    document.body.classList.remove('modal-open');
+    selectors.createPlanError.textContent = '';
+}
+
+function isCreatePlanModalOpen() {
+    return Boolean(selectors.createPlanModal && !selectors.createPlanModal.hidden);
+}
+
+async function handleCreatePlanSubmit(event) {
+    event.preventDefault();
+    if (!selectors.createPlanForm) {
+        return;
+    }
+
+    selectors.createPlanError.textContent = '';
+
+    const formData = new FormData(selectors.createPlanForm);
+    const payload = {
+        course_title: (formData.get('course_title') || '').toString().trim(),
+        topic_title: (formData.get('topic_title') || '').toString().trim(),
+        course_description: (formData.get('course_description') || '').toString().trim(),
+    };
+
+    if (!payload.course_title || !payload.topic_title) {
+        selectors.createPlanError.textContent = 'Informe o nome do curso e o primeiro tópico.';
+        return;
+    }
+
+    const submitButton = selectors.createPlanSubmit;
+    const originalLabel = submitButton?.textContent;
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Criando...';
+    }
+
+    try {
+        await apiFetch('/learning/create-study-plan/', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+        await loadDashboard();
+        closeCreatePlanModal();
+    } catch (error) {
+        console.error('Erro ao criar curso:', error);
+        selectors.createPlanError.textContent = error.message || 'Não foi possível criar o curso.';
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalLabel || 'Criar curso';
+        }
+    }
+}
 async function apiFetch(path, options = {}, { allowEmpty = false, retryOn401 = true } = {}) {
     const tokens = loadTokens();
     if (!tokens?.access) {
