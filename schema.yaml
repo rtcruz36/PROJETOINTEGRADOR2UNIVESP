@@ -523,6 +523,8 @@ paths:
         Endpoint para um usuário ver e atualizar seu próprio perfil.
         - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
         - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
+        - Envie `multipart/form-data` para atualizar o campo `profile_picture`; o campo
+          retornado inclui a URL completa para download em `/media/`.
       tags:
       - api
       security:
@@ -540,6 +542,8 @@ paths:
         Endpoint para um usuário ver e atualizar seu próprio perfil.
         - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
         - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
+        - Envie `multipart/form-data` para atualizar o campo `profile_picture`; o campo
+          retornado inclui a URL completa para download em `/media/`.
       tags:
       - api
       requestBody:
@@ -568,6 +572,8 @@ paths:
         Endpoint para um usuário ver e atualizar seu próprio perfil.
         - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
         - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
+        - Envie `multipart/form-data` para atualizar o campo `profile_picture`; o campo
+          retornado inclui a URL completa para download em `/media/`.
       tags:
       - api
       requestBody:
@@ -1443,6 +1449,7 @@ components:
           format: uri
           nullable: true
           title: Foto de Perfil
+          description: URL pública do arquivo enviado. Aceita upload via multipart/form-data.
         bio:
           type: string
           title: Biografia
@@ -1573,6 +1580,7 @@ components:
           format: uri
           nullable: true
           title: Foto de Perfil
+          description: URL pública do arquivo enviado. Aceita upload via multipart/form-data.
         bio:
           type: string
           title: Biografia

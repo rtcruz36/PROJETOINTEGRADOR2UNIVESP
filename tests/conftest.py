@@ -17,6 +17,20 @@ def api_client():
     """Cliente da API REST."""
     return APIClient()
 
+
+@pytest.fixture
+def media_storage(tmp_path, settings):
+    """Configura um diretório temporário para arquivos de mídia."""
+    media_root = tmp_path / "media"
+    media_root.mkdir(parents=True, exist_ok=True)
+    settings.MEDIA_ROOT = media_root
+    settings.MEDIA_URL = '/media/'
+
+    profile_pics_dir = media_root / 'profile_pics'
+    profile_pics_dir.mkdir(parents=True, exist_ok=True)
+
+    return media_root
+
 @pytest.fixture
 def user():
     """Usuário de teste."""

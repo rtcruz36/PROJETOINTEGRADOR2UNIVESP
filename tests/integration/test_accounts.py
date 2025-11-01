@@ -2,12 +2,21 @@
 import pytest
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from urllib.parse import urlparse
+from pathlib import Path
 
 from apps.accounts.models import Profile
 
 User = get_user_model()
+
+TEST_PROFILE_IMAGE = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\nIDATx\x9cc\xf8\x0f\x00\x01\x01\x01"
+    b"\x00\x18\xdd\xdc\x1d\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 @pytest.mark.django_db
 class TestUserAuthentication:
@@ -116,10 +125,43 @@ class TestUserProfile:
     def test_profile_access_requires_authentication(self, api_client):
         """Testa que o acesso ao perfil requer autenticação."""
         url = reverse('user-profile')
-        
+
         response = api_client.get(url)
-        
+
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_upload_and_download_profile_picture(self, authenticated_client, user, media_storage):
+        """Testa upload e download da foto de perfil via API."""
+        url = reverse('user-profile')
+        upload = SimpleUploadedFile(
+            name='avatar.png',
+            content=TEST_PROFILE_IMAGE,
+            content_type='image/png',
+        )
+
+        response = authenticated_client.patch(
+            url,
+            {'profile_picture': upload},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['profile_picture']
+
+        user.profile.refresh_from_db()
+        stored_path = Path(media_storage) / user.profile.profile_picture.name
+        assert stored_path.exists()
+
+        with stored_path.open('rb') as stored_file:
+            stored_bytes = stored_file.read()
+
+        assert stored_bytes == TEST_PROFILE_IMAGE
+
+        download_path = urlparse(response.data['profile_picture']).path
+        download_response = authenticated_client.get(download_path)
+
+        assert download_response.status_code == status.HTTP_200_OK
+        assert download_response.content == stored_bytes
 
     def test_user_profile_created_on_user_creation(self, api_client):
         """Testa se o perfil é criado automaticamente quando um usuário é criado."""

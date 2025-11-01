@@ -1,0 +1,534 @@
+diff --git a/.gitignore b/.gitignore
+index 6d831a5c224cb29001ef563d22c2b0463ae35cb9..fd06aa2ed0e485b344d69e1a3d9c9cbcd41bcdc6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,9 +1,10 @@
+ # Created by venv; see https://docs.python.org/3/library/venv.html
+ .env
+ 
+ db.sqlite3
+ 
+ __pycache__/
+ *.pyc
+ 
+ .env.test
++media/profile_pics/
+diff --git a/apps/accounts/apps.py b/apps/accounts/apps.py
+index bd9d60a14a916786ea5610bdeae50a223287ea24..5024fcf2b85036cb853c224e03bf49ce11645271 100644
+--- a/apps/accounts/apps.py
++++ b/apps/accounts/apps.py
+@@ -1,6 +1,14 @@
+ from django.apps import AppConfig
++from django.conf import settings
++from pathlib import Path
+ 
+ 
+ class AccountsConfig(AppConfig):
+     default_auto_field = 'django.db.models.BigAutoField'
+     name = 'apps.accounts'
++
++    def ready(self):
++        """Garante a existência do diretório de fotos de perfil."""
++        media_root = Path(settings.MEDIA_ROOT)
++        profile_pics_dir = media_root / 'profile_pics'
++        profile_pics_dir.mkdir(parents=True, exist_ok=True)
+diff --git a/config/settings.py b/config/settings.py
+index 094451ad6e6ce2a292e66d0d7211c4687ffe1a47..ff3145bead07087ce9cb85864a61d9bf67d3e5e5 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -176,50 +176,52 @@ AUTH_PASSWORD_VALIDATORS = [
+     {
+         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+     },
+     {
+         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+     },
+ ]
+ 
+ 
+ # Internationalization
+ # https://docs.djangoproject.com/en/5.2/topics/i18n/
+ 
+ LANGUAGE_CODE = 'en-us'
+ 
+ TIME_ZONE = 'UTC'
+ 
+ USE_I18N = True
+ 
+ USE_TZ = True
+ 
+ 
+ # Static files (CSS, JavaScript, Images)
+ # https://docs.djangoproject.com/en/5.2/howto/static-files/
+ 
+ STATIC_URL = 'static/'
++MEDIA_URL = '/media/'
++MEDIA_ROOT = BASE_DIR / 'media'
+ 
+ # Default primary key field type
+ # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+ 
+ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+ 
+ SECRET_KEY = config('SECRET_KEY')
+ DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY')
+ 
+ EMAIL_BACKEND = config(
+     'EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend'
+ )
+ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='no-reply@example.com')
+ 
+ AUTH_USER_MODEL = 'accounts.User'
+ 
+ 
+ if 'test' in sys.argv:
+     DATABASES = {
+         'default': {
+             'ENGINE': 'django.db.backends.sqlite3',
+             'NAME': ':memory:'  # Banco em memória para testes mais rápidos
+         }
+     }
+     
+@@ -247,26 +249,26 @@ SPECTACULAR_SETTINGS = {
+     'POSTPROCESSING_HOOKS': [
+         'config.openapi_hooks.add_jwt_highlight_to_schema',
+     ],
+     'SWAGGER_UI_SETTINGS': {
+         'deepLinking': True,
+         'docExpansion': 'list',
+         'defaultModelsExpandDepth': -1,
+         'persistAuthorization': True,
+         'displayRequestDuration': True,
+         'filter': True,
+         'tagsSorter': 'alpha',
+         'operationsSorter': 'alpha',
+     },
+     'REDOC_SETTINGS': {
+         'hideDownloadButton': True,
+         'expandResponses': '200,201',
+         'tagGroups': [
+             {
+                 'name': 'Fluxos de Autenticação',
+                 'tags': ['Autenticação JWT'],
+             },
+         ],
+     },
+     # Adicione mais configurações aqui conforme necessário
+     # https://drf-spectacular.readthedocs.io/en/latest/settings.html
+-}
+\ No newline at end of file
++}
+diff --git a/schema.yaml b/schema.yaml
+index 073f582fb09945a6650619a7f2277376ff2f8017..3d58d2198c57ab765b347c5f179d1dfe0c65f112 100644
+--- a/schema.yaml
++++ b/schema.yaml
+@@ -501,95 +501,101 @@ paths:
+             schema:
+               $ref: '#/components/schemas/SetPassword'
+           application/x-www-form-urlencoded:
+             schema:
+               $ref: '#/components/schemas/SetPassword'
+           multipart/form-data:
+             schema:
+               $ref: '#/components/schemas/SetPassword'
+         required: true
+       security:
+       - jwtAuth: []
+       responses:
+         '200':
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/SetPassword'
+           description: ''
+   /api/accounts/profile/:
+     get:
+       operationId: api_accounts_profile_retrieve
+       description: |-
+         Endpoint para um usuário ver e atualizar seu próprio perfil.
+         - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
+         - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
++        - Envie `multipart/form-data` para atualizar o campo `profile_picture`; o campo
++          retornado inclui a URL completa para download em `/media/`.
+       tags:
+       - api
+       security:
+       - jwtAuth: []
+       responses:
+         '200':
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/Profile'
+           description: ''
+     put:
+       operationId: api_accounts_profile_update
+       description: |-
+         Endpoint para um usuário ver e atualizar seu próprio perfil.
+         - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
+         - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
++        - Envie `multipart/form-data` para atualizar o campo `profile_picture`; o campo
++          retornado inclui a URL completa para download em `/media/`.
+       tags:
+       - api
+       requestBody:
+         content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/Profile'
+           application/x-www-form-urlencoded:
+             schema:
+               $ref: '#/components/schemas/Profile'
+           multipart/form-data:
+             schema:
+               $ref: '#/components/schemas/Profile'
+       security:
+       - jwtAuth: []
+       responses:
+         '200':
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/Profile'
+           description: ''
+     patch:
+       operationId: api_accounts_profile_partial_update
+       description: |-
+         Endpoint para um usuário ver e atualizar seu próprio perfil.
+         - GET: /api/accounts/profile/ (Retorna o perfil do usuário logado)
+         - PUT/PATCH: /api/accounts/profile/ (Atualiza o perfil do usuário logado)
++        - Envie `multipart/form-data` para atualizar o campo `profile_picture`; o campo
++          retornado inclui a URL completa para download em `/media/`.
+       tags:
+       - api
+       requestBody:
+         content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/PatchedProfile'
+           application/x-www-form-urlencoded:
+             schema:
+               $ref: '#/components/schemas/PatchedProfile'
+           multipart/form-data:
+             schema:
+               $ref: '#/components/schemas/PatchedProfile'
+       security:
+       - jwtAuth: []
+       responses:
+         '200':
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/Profile'
+           description: ''
+   /api/analytics/study-effectiveness/:
+     get:
+       operationId: api_analytics_study_effectiveness_retrieve
+@@ -1421,50 +1427,51 @@ components:
+         * `EASY` - Fácil
+         * `MODERATE` - Moderada
+         * `HARD` - Difícil
+     PasswordResetConfirm:
+       type: object
+       properties:
+         uid:
+           type: string
+         token:
+           type: string
+         new_password:
+           type: string
+       required:
+       - new_password
+       - token
+       - uid
+     PatchedProfile:
+       type: object
+       description: Serializador para o perfil do usuário.
+       properties:
+         profile_picture:
+           type: string
+           format: uri
+           nullable: true
+           title: Foto de Perfil
++          description: URL pública do arquivo enviado. Aceita upload via multipart/form-data.
+         bio:
+           type: string
+           title: Biografia
+           maxLength: 500
+     PatchedStudyLog:
+       type: object
+       description: Serializador para o modelo StudyLog (Sessões de Estudo Realizadas).
+       properties:
+         id:
+           type: integer
+           readOnly: true
+         topic:
+           type: integer
+           nullable: true
+           title: Tópico Estudado
+         course:
+           type: integer
+           title: Disciplina
+         date:
+           type: string
+           format: date
+           title: Data do Estudo
+         minutes_studied:
+           type: integer
+           maximum: 9223372036854775807
+@@ -1551,50 +1558,51 @@ components:
+         username:
+           type: string
+           description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+             only.
+           pattern: ^[\w.@+-]+$
+           maxLength: 150
+         first_name:
+           type: string
+           maxLength: 150
+         last_name:
+           type: string
+           maxLength: 150
+         profile:
+           allOf:
+           - $ref: '#/components/schemas/Profile'
+           readOnly: true
+     Profile:
+       type: object
+       description: Serializador para o perfil do usuário.
+       properties:
+         profile_picture:
+           type: string
+           format: uri
+           nullable: true
+           title: Foto de Perfil
++          description: URL pública do arquivo enviado. Aceita upload via multipart/form-data.
+         bio:
+           type: string
+           title: Biografia
+           maxLength: 500
+     Question:
+       type: object
+       description: Serializador para exibir uma Pergunta (sem a resposta correta).
+       properties:
+         id:
+           type: integer
+           readOnly: true
+         question_text:
+           type: string
+           title: Texto da Pergunta
+         choices:
+           title: Opções de Resposta
+         difficulty:
+           allOf:
+           - $ref: '#/components/schemas/DifficultyEnum'
+           title: Nível de Dificuldade
+       required:
+       - choices
+       - id
+       - question_text
+     QuizDetail:
+diff --git a/tests/conftest.py b/tests/conftest.py
+index 220642eedd9fcba358904de6cac4e4de97f9f84a..49e101bcc246f6429a53cceef0ebca864c0ff9a6 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -1,44 +1,58 @@
+ # tests/conftest.py
+ import pytest
+ from django.test import Client
+ from django.contrib.auth import get_user_model
+ from rest_framework.test import APIClient
+ from rest_framework_simplejwt.tokens import RefreshToken
+ from unittest.mock import patch, MagicMock
+ 
+ from apps.learning.models import Course, Topic, Subtopic
+ from apps.scheduling.models import StudyPlan, StudyLog
+ from apps.assessment.models import Quiz, Question, Attempt, Answer
+ 
+ User = get_user_model()
+ 
+ @pytest.fixture
+ def api_client():
+     """Cliente da API REST."""
+     return APIClient()
+ 
++
++@pytest.fixture
++def media_storage(tmp_path, settings):
++    """Configura um diretório temporário para arquivos de mídia."""
++    media_root = tmp_path / "media"
++    media_root.mkdir(parents=True, exist_ok=True)
++    settings.MEDIA_ROOT = media_root
++    settings.MEDIA_URL = '/media/'
++
++    profile_pics_dir = media_root / 'profile_pics'
++    profile_pics_dir.mkdir(parents=True, exist_ok=True)
++
++    return media_root
++
+ @pytest.fixture
+ def user():
+     """Usuário de teste."""
+     return User.objects.create_user(
+         username='testuser',
+         email='test@example.com',
+         password='testpass123',
+         first_name='Test',
+         last_name='User'
+     )
+ 
+ @pytest.fixture
+ def other_user():
+     """Outro usuário para testar isolamento de dados."""
+     return User.objects.create_user(
+         username='otheruser',
+         email='other@example.com',
+         password='testpass123'
+     )
+ 
+ @pytest.fixture
+ def authenticated_client(api_client, user):
+     """Cliente autenticado com JWT."""
+     refresh = RefreshToken.for_user(user)
+     api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+diff --git a/tests/integration/test_accounts.py b/tests/integration/test_accounts.py
+index d9d75defbd4b779a9033106f952f3b5debe8166f..75a30dc7c325e688883cc9ffb25f1b2fbc8cec86 100644
+--- a/tests/integration/test_accounts.py
++++ b/tests/integration/test_accounts.py
+@@ -1,36 +1,45 @@
+ # tests/integration/test_accounts.py
+ import pytest
+ from django.urls import reverse
+ from django.contrib.auth import get_user_model
++from django.core.files.uploadedfile import SimpleUploadedFile
+ from rest_framework import status
+ from rest_framework_simplejwt.tokens import RefreshToken
++from urllib.parse import urlparse
++from pathlib import Path
+ 
+ from apps.accounts.models import Profile
+ 
+ User = get_user_model()
+ 
++TEST_PROFILE_IMAGE = (
++    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
++    b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\nIDATx\x9cc\xf8\x0f\x00\x01\x01\x01"
++    b"\x00\x18\xdd\xdc\x1d\x00\x00\x00\x00IEND\xaeB`\x82"
++)
++
+ @pytest.mark.django_db
+ class TestUserAuthentication:
+     """Testes de autenticação e registro de usuários."""
+     
+     def test_user_registration_flow(self, api_client):
+         """Testa o fluxo completo de registro de usuário."""
+         url = reverse('user-list')
+         data = {
+             'email': 'newuser@example.com',
+             'username': 'newuser',
+             'password': 'strongpass123',
+             'first_name': 'New',
+             'last_name': 'User'
+         }
+         
+         response = api_client.post(url, data, format='json')
+         
+         assert response.status_code == status.HTTP_201_CREATED
+         assert User.objects.filter(email='newuser@example.com').exists()
+         
+         # Verifica se o perfil foi criado automaticamente
+         user = User.objects.get(email='newuser@example.com')
+         assert hasattr(user, 'profile')
+         assert Profile.objects.filter(user=user).exists()
+ 
+@@ -94,55 +103,88 @@ class TestUserProfile:
+         response = authenticated_client.get(url)
+         
+         assert response.status_code == status.HTTP_200_OK
+         assert 'profile_picture' in response.data
+         assert 'bio' in response.data
+ 
+     def test_update_user_profile(self, authenticated_client, user):
+         """Testa atualização do perfil do usuário."""
+         url = reverse('user-profile')
+         data = {
+             'bio': 'Sou um estudante de engenharia apaixonado por matemática.'
+         }
+         
+         response = authenticated_client.patch(url, data, format='json')
+         
+         assert response.status_code == status.HTTP_200_OK
+         assert response.data['bio'] == data['bio']
+         
+         # Verifica se foi salvo no banco
+         user.profile.refresh_from_db()
+         assert user.profile.bio == data['bio']
+ 
+     def test_profile_access_requires_authentication(self, api_client):
+         """Testa que o acesso ao perfil requer autenticação."""
+         url = reverse('user-profile')
+-        
++
+         response = api_client.get(url)
+-        
++
+         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+ 
++    def test_upload_and_download_profile_picture(self, authenticated_client, user, media_storage):
++        """Testa upload e download da foto de perfil via API."""
++        url = reverse('user-profile')
++        upload = SimpleUploadedFile(
++            name='avatar.png',
++            content=TEST_PROFILE_IMAGE,
++            content_type='image/png',
++        )
++
++        response = authenticated_client.patch(
++            url,
++            {'profile_picture': upload},
++            format='multipart',
++        )
++
++        assert response.status_code == status.HTTP_200_OK
++        assert response.data['profile_picture']
++
++        user.profile.refresh_from_db()
++        stored_path = Path(media_storage) / user.profile.profile_picture.name
++        assert stored_path.exists()
++
++        with stored_path.open('rb') as stored_file:
++            stored_bytes = stored_file.read()
++
++        assert stored_bytes == TEST_PROFILE_IMAGE
++
++        download_path = urlparse(response.data['profile_picture']).path
++        download_response = authenticated_client.get(download_path)
++
++        assert download_response.status_code == status.HTTP_200_OK
++        assert download_response.content == stored_bytes
++
+     def test_user_profile_created_on_user_creation(self, api_client):
+         """Testa se o perfil é criado automaticamente quando um usuário é criado."""
+         # Criar usuário via API
+         url = reverse('user-list')
+         data = {
+             'email': 'profiletest@example.com',
+             'username': 'profiletest',
+             'password': 'testpass123'
+         }
+         
+         response = api_client.post(url, data, format='json')
+         assert response.status_code == status.HTTP_201_CREATED
+         
+         # Verificar se o perfil foi criado
+         user = User.objects.get(email='profiletest@example.com')
+         assert Profile.objects.filter(user=user).exists()
+         
+         # Verificar se o signal funciona também para criação manual
+         manual_user = User.objects.create_user(
+             username='manualuser',
+             email='manual@example.com',
+             password='testpass123'
+         )
+         assert Profile.objects.filter(user=manual_user).exists()
+ 
