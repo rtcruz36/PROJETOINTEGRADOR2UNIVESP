@@ -13,6 +13,7 @@ import os
 import sys
 from decouple import config
 from pathlib import Path
+from corsheaders.defaults import default_headers
 from apps.accounts.apps import AccountsConfig
 from apps.core.apps import CoreConfig
 from apps.learning.apps import LearningConfig
@@ -48,6 +49,7 @@ ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 INSTALLED_APPS = [
     # MEUS APPS (PRIMEIRO)
     # O app que define o AUTH_USER_MODEL deve vir antes de 'django.contrib.auth'
+    'corsheaders',
     'apps.accounts.apps.AccountsConfig',
     'apps.core.apps.CoreConfig',
     'apps.learning.apps.LearningConfig',
@@ -73,6 +75,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -135,6 +138,31 @@ SIMPLE_JWT = {
 
 # Configuração do frontend para links enviados por e-mail
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+
+
+# Configuração de CORS para permitir o acesso do frontend
+def _parse_csv(value: str) -> list[str]:
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
+DEFAULT_CORS_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default=','.join(DEFAULT_CORS_ORIGINS),
+    cast=_parse_csv,
+)
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = list(default_headers) + ['authorization']
 
 
 # Configuração do Djoser
