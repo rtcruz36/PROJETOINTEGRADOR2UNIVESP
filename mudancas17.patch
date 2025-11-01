@@ -1,0 +1,1514 @@
+diff --git a/apps/assessment/serializers.py b/apps/assessment/serializers.py
+index 6a8e1921aff9cb3292be46b6210934f008b3afb3..530893b7522fc0c7b6a0eba51b4c41eb286ea0d5 100644
+--- a/apps/assessment/serializers.py
++++ b/apps/assessment/serializers.py
+@@ -47,54 +47,56 @@ class QuestionManageSerializer(serializers.ModelSerializer):
+         choices = attrs.get('choices', getattr(self.instance, 'choices', None))
+         correct_answer = attrs.get('correct_answer', getattr(self.instance, 'correct_answer', None))
+         quiz = attrs.get('quiz', getattr(self.instance, 'quiz', None))
+         subtopic = attrs.get('subtopic', getattr(self.instance, 'subtopic', None))
+ 
+         if choices is None or not isinstance(choices, dict):
+             raise serializers.ValidationError({
+                 'choices': 'As opções de resposta devem ser um objeto JSON com as chaves das alternativas.'
+             })
+ 
+         if correct_answer and correct_answer not in choices:
+             raise serializers.ValidationError({
+                 'correct_answer': 'A resposta correta precisa corresponder a uma das chaves em "choices".'
+             })
+ 
+         if quiz and subtopic and subtopic.topic_id != quiz.topic_id:
+             raise serializers.ValidationError({
+                 'subtopic': 'O subtópico selecionado precisa pertencer ao mesmo tópico do quiz.'
+             })
+ 
+         return super().validate(attrs)
+ 
+ class AnswerDetailSerializer(serializers.ModelSerializer):
+     """Serializador para mostrar os detalhes de uma resposta dada pelo usuário."""
+     question = QuestionSerializer(read_only=True)
++    explanation = serializers.CharField(source='question.explanation', read_only=True)
++    correct_answer = serializers.CharField(source='question.correct_answer', read_only=True)
+ 
+     class Meta:
+         model = Answer
+-        fields = ['question', 'user_answer', 'is_correct']
++        fields = ['question', 'user_answer', 'is_correct', 'explanation', 'correct_answer']
+ 
+ class AttemptDetailSerializer(serializers.ModelSerializer):
+     """Serializador para mostrar o resultado detalhado de uma tentativa."""
+     answers = AnswerDetailSerializer(many=True, read_only=True)
+     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+ 
+     class Meta:
+         model = Attempt
+         fields = [
+             'id', 
+             'quiz',
+             'quiz_title',
+             'score', 
+             'correct_answers_count', 
+             'incorrect_answers_count', 
+             'completed_at', 
+             'answers'
+         ]
+ 
+ class QuizDetailSerializer(serializers.ModelSerializer):
+     """Serializador para exibir um Quiz com todas as suas perguntas."""
+     questions = QuestionSerializer(many=True, read_only=True)
+     topic_title = serializers.CharField(source='topic.title', read_only=True)
+ 
+     class Meta:
+diff --git a/frontend/js/quiz-results.js b/frontend/js/quiz-results.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f554a92f5c306e6ec72da72936149239b28fd33
+--- /dev/null
++++ b/frontend/js/quiz-results.js
+@@ -0,0 +1,557 @@
++const API_BASE_URL = (document.body.dataset.apiBase || 'http://localhost:8000/api').replace(/\/$/, '');
++const STORAGE_KEY = 'pi2-dashboard-auth';
++
++const DIFFICULTY_LABELS = {
++    EASY: 'Fácil',
++    MODERATE: 'Moderada',
++    HARD: 'Difícil',
++    MIXED: 'Mista',
++};
++
++const selectors = {
++    loginOverlay: document.getElementById('login-overlay'),
++    loginForm: document.getElementById('login-form'),
++    loginError: document.getElementById('login-error'),
++    logoutButton: document.getElementById('logout-button'),
++    greeting: document.getElementById('user-greeting'),
++    quizTitle: document.getElementById('quiz-title'),
++    quizDescription: document.getElementById('quiz-description'),
++    scoreDisplay: document.querySelector('.score-display'),
++    scoreValue: document.getElementById('score-value'),
++    scoreFeedback: document.getElementById('score-feedback'),
++    statCorrect: document.getElementById('stat-correct'),
++    statIncorrect: document.getElementById('stat-incorrect'),
++    statTotal: document.getElementById('stat-total'),
++    statDate: document.getElementById('stat-date'),
++    retryQuiz: document.getElementById('retry-quiz'),
++    nextQuiz: document.getElementById('next-quiz'),
++    difficultyList: document.getElementById('difficulty-breakdown'),
++    reviewContainer: document.getElementById('review-container'),
++    reviewTemplate: document.getElementById('review-item-template'),
++    difficultyTemplate: document.getElementById('difficulty-item-template'),
++};
++
++const state = {
++    attemptId: null,
++    quizId: null,
++    attempt: null,
++    user: null,
++    quizzes: [],
++    attempts: [],
++};
++
++document.addEventListener('DOMContentLoaded', () => {
++    parseParams();
++
++    selectors.loginForm?.addEventListener('submit', handleLoginSubmit);
++    selectors.logoutButton?.addEventListener('click', handleLogout);
++    selectors.retryQuiz?.addEventListener('click', handleRetryClick);
++    selectors.nextQuiz?.addEventListener('click', handleNextQuizClick);
++
++    restoreSession();
++});
++
++function parseParams() {
++    const params = new URLSearchParams(window.location.search);
++    const attemptIdParam = params.get('attemptId') || params.get('attempt_id');
++    const quizIdParam = params.get('quizId') || params.get('quiz_id');
++    state.attemptId = attemptIdParam ? Number(attemptIdParam) : null;
++    state.quizId = quizIdParam ? Number(quizIdParam) : null;
++}
++
++function restoreSession() {
++    const tokens = loadTokens();
++    if (!tokens?.access) {
++        showLogin();
++        return;
++    }
++
++    loadResults().catch((error) => {
++        console.error('Falha ao carregar os resultados:', error);
++        clearTokens();
++        showLogin('Sua sessão expirou. Entre novamente.');
++    });
++}
++
++async function handleLoginSubmit(event) {
++    event.preventDefault();
++    if (!selectors.loginForm) {
++        return;
++    }
++
++    selectors.loginError.textContent = '';
++    const formData = new FormData(selectors.loginForm);
++    const email = formData.get('email');
++    const password = formData.get('password');
++
++    try {
++        const response = await fetch(`${API_BASE_URL}/accounts/auth/jwt/create/`, {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ email, password }),
++        });
++
++        if (!response.ok) {
++            const errorData = await safeJson(response);
++            const detail = errorData?.detail || 'Não foi possível realizar o login.';
++            throw new Error(detail);
++        }
++
++        const data = await response.json();
++        saveTokens({ access: data.access, refresh: data.refresh });
++        selectors.loginForm.reset();
++
++        await loadResults();
++        hideLogin();
++    } catch (error) {
++        console.error('Erro de login:', error);
++        selectors.loginError.textContent = error.message || 'Erro inesperado ao entrar.';
++    }
++}
++
++function handleLogout() {
++    clearTokens();
++    state.user = null;
++    state.attempt = null;
++    state.quizzes = [];
++    showLogin();
++}
++
++function handleRetryClick(event) {
++    if (!state.quizId) {
++        event.preventDefault();
++    }
++}
++
++function handleNextQuizClick(event) {
++    if (selectors.nextQuiz?.getAttribute('aria-disabled') === 'true') {
++        event.preventDefault();
++    }
++}
++
++async function loadResults() {
++    selectors.quizTitle.textContent = 'Carregando resultados...';
++    selectors.quizDescription.textContent = '';
++    selectors.scoreValue.textContent = '--%';
++    selectors.scoreFeedback.textContent = '';
++    selectors.statCorrect.textContent = '--';
++    selectors.statIncorrect.textContent = '--';
++    selectors.statTotal.textContent = '--';
++    selectors.statDate.textContent = '--';
++    selectors.difficultyList.innerHTML = '';
++    selectors.reviewContainer.textContent = '';
++
++    const [user, attempts] = await Promise.all([
++        apiFetch('/accounts/auth/users/me/'),
++        apiFetch('/assessment/attempts/'),
++    ]);
++
++    state.user = user;
++    updateGreeting(user);
++
++    state.attempts = normalizeAttempts(attempts);
++
++    if (!state.attemptId) {
++        state.attemptId = findLatestAttemptId();
++    }
++
++    if (!state.attemptId) {
++        renderEmptyState();
++        hideLogin();
++        return;
++    }
++
++    const [attempt, quizzes] = await Promise.all([
++        apiFetch(`/assessment/attempts/${state.attemptId}/`),
++        apiFetch('/assessment/quizzes/'),
++    ]);
++
++    state.attempt = attempt;
++    state.quizId = attempt.quiz;
++    state.quizzes = Array.isArray(quizzes) ? quizzes : [];
++
++    renderAttempt();
++    hideLogin();
++}
++
++function renderEmptyState() {
++    selectors.quizTitle.textContent = 'Nenhum resultado encontrado';
++    selectors.quizDescription.textContent = 'Envie uma tentativa de quiz para visualizar esta página.';
++    selectors.reviewContainer.textContent = 'Ainda não há respostas para revisar.';
++    selectors.retryQuiz?.setAttribute('aria-disabled', 'true');
++    selectors.retryQuiz?.setAttribute('href', '#');
++    selectors.nextQuiz?.setAttribute('aria-disabled', 'true');
++    selectors.nextQuiz?.setAttribute('href', '#');
++}
++
++function renderAttempt() {
++    const attempt = state.attempt;
++    if (!attempt) {
++        renderEmptyState();
++        return;
++    }
++
++    const quiz = state.quizzes.find((item) => item.id === attempt.quiz);
++
++    selectors.quizTitle.textContent = attempt.quiz_title || quiz?.title || 'Quiz sem título';
++    selectors.quizDescription.textContent = quiz?.description || '';
++
++    const score = attempt.score != null ? Math.round(attempt.score) : null;
++    selectors.scoreValue.textContent = score != null ? `${score}%` : '--%';
++    selectors.scoreFeedback.textContent = score != null ? buildScoreFeedback(score) : '';
++
++    triggerScoreAnimation();
++
++    const correct = attempt.correct_answers_count ?? 0;
++    const incorrect = attempt.incorrect_answers_count ?? 0;
++    const total = correct + incorrect;
++
++    selectors.statCorrect.textContent = correct;
++    selectors.statIncorrect.textContent = incorrect;
++    selectors.statTotal.textContent = total;
++    selectors.statDate.textContent = formatDate(attempt.completed_at);
++
++    if (state.quizId) {
++        selectors.retryQuiz?.setAttribute('href', `quiz.html?quizId=${state.quizId}`);
++        selectors.retryQuiz?.removeAttribute('aria-disabled');
++    }
++
++    renderDifficultyBreakdown(attempt);
++    renderReview(attempt);
++    updateNextQuizAction();
++}
++
++function renderDifficultyBreakdown(attempt) {
++    selectors.difficultyList.innerHTML = '';
++    if (!Array.isArray(attempt.answers) || !attempt.answers.length) {
++        const item = document.createElement('li');
++        item.textContent = 'Não foi possível calcular os acertos por dificuldade.';
++        item.className = 'difficulty-item';
++        selectors.difficultyList.append(item);
++        return;
++    }
++
++    const buckets = new Map();
++
++    attempt.answers.forEach((answer) => {
++        const difficulty = answer.question?.difficulty || 'UNKNOWN';
++        if (!buckets.has(difficulty)) {
++            buckets.set(difficulty, { total: 0, correct: 0 });
++        }
++        const bucket = buckets.get(difficulty);
++        bucket.total += 1;
++        if (answer.is_correct) {
++            bucket.correct += 1;
++        }
++    });
++
++    const template = selectors.difficultyTemplate?.content.firstElementChild;
++    const entries = Array.from(buckets.entries()).sort((a, b) => a[0].localeCompare(b[0]));
++
++    entries.forEach(([difficulty, stats]) => {
++        const item = template ? template.cloneNode(true) : document.createElement('li');
++        const percent = stats.total ? Math.round((stats.correct / stats.total) * 100) : 0;
++        const titleEl = item.querySelector('.difficulty-item__title');
++        const ratioEl = item.querySelector('.difficulty-item__ratio');
++        const barEl = item.querySelector('.difficulty-item__bar');
++        const barFillEl = item.querySelector('.difficulty-item__bar-fill');
++        const detailsEl = item.querySelector('.difficulty-item__details');
++
++        const label = DIFFICULTY_LABELS[difficulty] || 'Não informada';
++
++        if (titleEl) {
++            titleEl.textContent = label;
++        }
++
++        if (ratioEl) {
++            ratioEl.textContent = `${stats.correct} de ${stats.total}`;
++        }
++
++        if (barEl) {
++            barEl.setAttribute('aria-valuenow', String(percent));
++        }
++
++        if (barFillEl) {
++            requestAnimationFrame(() => {
++                barFillEl.style.width = `${percent}%`;
++            });
++        }
++
++        if (detailsEl) {
++            detailsEl.textContent = percent >= 70
++                ? 'Ótimo desempenho nesta dificuldade.'
++                : percent >= 40
++                    ? 'Desempenho intermediário, vale revisar.'
++                    : 'Considere revisar conteúdo desta dificuldade.';
++        }
++
++        selectors.difficultyList.append(item);
++    });
++}
++
++function renderReview(attempt) {
++    selectors.reviewContainer.innerHTML = '';
++    if (!Array.isArray(attempt.answers) || !attempt.answers.length) {
++        const empty = document.createElement('p');
++        empty.textContent = 'Nenhuma resposta encontrada para esta tentativa.';
++        selectors.reviewContainer.append(empty);
++        return;
++    }
++
++    const template = selectors.reviewTemplate?.content.firstElementChild;
++
++    attempt.answers.forEach((answer, index) => {
++        const element = template ? template.cloneNode(true) : document.createElement('article');
++        const status = answer.is_correct ? 'correct' : 'incorrect';
++        element.dataset.status = status;
++
++        const questionTitle = element.querySelector('.review-item__title');
++        const questionText = element.querySelector('.review-item__question');
++        const badge = element.querySelector('.review-item__badge');
++        const answerEl = element.querySelector('.review-item__answer');
++        const correctEl = element.querySelector('.review-item__correct');
++        const difficultyEl = element.querySelector('.review-item__difficulty');
++        const explanationEl = element.querySelector('.review-item__explanation-text');
++
++        const question = answer.question;
++        const questionLabel = question?.question_text || `Questão ${index + 1}`;
++
++        if (questionTitle) {
++            questionTitle.textContent = `Questão ${index + 1}`;
++        }
++
++        if (questionText) {
++            questionText.textContent = questionLabel;
++        }
++
++        if (badge) {
++            badge.dataset.statusText = status;
++            badge.textContent = answer.is_correct ? 'Correta' : 'Incorreta';
++        }
++
++        if (answerEl) {
++            answerEl.textContent = resolveChoiceLabel(question?.choices, answer.user_answer) || answer.user_answer || '—';
++        }
++
++        if (correctEl) {
++            correctEl.textContent = resolveChoiceLabel(question?.choices, answer.correct_answer) || answer.correct_answer || '—';
++        }
++
++        if (difficultyEl) {
++            difficultyEl.textContent = formatDifficulty(question?.difficulty);
++        }
++
++        if (explanationEl) {
++            explanationEl.textContent = answer.explanation || 'Sem explicação cadastrada para esta pergunta.';
++        }
++
++        selectors.reviewContainer.append(element);
++    });
++}
++
++function updateNextQuizAction() {
++    if (!selectors.nextQuiz) {
++        return;
++    }
++
++    if (!Array.isArray(state.quizzes) || state.quizzes.length <= 1) {
++        selectors.nextQuiz.setAttribute('aria-disabled', 'true');
++        selectors.nextQuiz.setAttribute('href', '#');
++        return;
++    }
++
++    const sorted = state.quizzes.slice().sort((a, b) => (a.title || '').localeCompare(b.title || ''));
++    const currentIndex = sorted.findIndex((quiz) => quiz.id === state.quizId);
++
++    if (currentIndex === -1) {
++        selectors.nextQuiz.setAttribute('aria-disabled', 'true');
++        selectors.nextQuiz.setAttribute('href', '#');
++        return;
++    }
++
++    let nextIndex = (currentIndex + 1) % sorted.length;
++    if (sorted[nextIndex].id === state.quizId) {
++        selectors.nextQuiz.setAttribute('aria-disabled', 'true');
++        selectors.nextQuiz.setAttribute('href', '#');
++        return;
++    }
++
++    const nextQuiz = sorted[nextIndex];
++    selectors.nextQuiz.href = `quiz.html?quizId=${nextQuiz.id}`;
++    selectors.nextQuiz.removeAttribute('aria-disabled');
++}
++
++function findLatestAttemptId() {
++    if (!Array.isArray(state.attempts) || !state.attempts.length) {
++        return null;
++    }
++
++    let attempts = state.attempts;
++    if (state.quizId) {
++        attempts = attempts.filter((attempt) => attempt.quiz === state.quizId);
++    }
++
++    if (!attempts.length) {
++        return null;
++    }
++
++    const latest = attempts
++        .slice()
++        .sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))[0];
++
++    return latest?.id ?? null;
++}
++
++function buildScoreFeedback(score) {
++    if (score >= 90) {
++        return 'Excelente desempenho! Continue assim.';
++    }
++    if (score >= 75) {
++        return 'Ótimo trabalho! Pequenos ajustes podem levar à perfeição.';
++    }
++    if (score >= 50) {
++        return 'Bom esforço! Revise as questões incorretas para consolidar o conhecimento.';
++    }
++    return 'Ótimo momento para revisar o conteúdo e tentar novamente.';
++}
++
++function triggerScoreAnimation() {
++    if (!selectors.scoreDisplay) {
++        return;
++    }
++
++    selectors.scoreDisplay.classList.remove('score-display--animate');
++    void selectors.scoreDisplay.offsetWidth;
++    selectors.scoreDisplay.classList.add('score-display--animate');
++}
++
++function formatDate(value) {
++    if (!value) {
++        return '—';
++    }
++    const date = new Date(value);
++    if (Number.isNaN(date.getTime())) {
++        return '—';
++    }
++    return date.toLocaleString('pt-BR');
++}
++
++function formatDifficulty(code) {
++    if (!code) {
++        return 'Não informada';
++    }
++    return DIFFICULTY_LABELS[code] || 'Não informada';
++}
++
++function resolveChoiceLabel(choices, key) {
++    if (!choices || !key) {
++        return null;
++    }
++
++    if (Array.isArray(choices)) {
++        const index = choices.findIndex(([choiceKey]) => String(choiceKey).toUpperCase() === String(key).toUpperCase());
++        return index !== -1 ? choices[index][1] : null;
++    }
++
++    const entries = Object.entries(choices);
++    for (const [choiceKey, value] of entries) {
++        if (String(choiceKey).toUpperCase() === String(key).toUpperCase()) {
++            return value;
++        }
++    }
++    return null;
++}
++
++function normalizeAttempts(raw) {
++    if (!raw) {
++        return [];
++    }
++
++    if (Array.isArray(raw)) {
++        return raw;
++    }
++
++    if (Array.isArray(raw.results)) {
++        return raw.results;
++    }
++
++    return [];
++}
++
++function updateGreeting(user) {
++    if (!selectors.greeting) {
++        return;
++    }
++    const name = user?.first_name || user?.email;
++    selectors.greeting.textContent = name ? `Olá, ${name}!` : 'Olá!';
++}
++
++function showLogin(message) {
++    if (message) {
++        selectors.loginError.textContent = message;
++    }
++    selectors.loginOverlay?.removeAttribute('hidden');
++    selectors.loginOverlay?.setAttribute('aria-hidden', 'false');
++}
++
++function hideLogin() {
++    selectors.loginError.textContent = '';
++    selectors.loginOverlay?.setAttribute('hidden', 'hidden');
++    selectors.loginOverlay?.setAttribute('aria-hidden', 'true');
++}
++
++function loadTokens() {
++    try {
++        const raw = localStorage.getItem(STORAGE_KEY);
++        return raw ? JSON.parse(raw) : null;
++    } catch (error) {
++        console.warn('Não foi possível carregar tokens do armazenamento.', error);
++        return null;
++    }
++}
++
++function saveTokens(tokens) {
++    localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
++}
++
++function clearTokens() {
++    localStorage.removeItem(STORAGE_KEY);
++}
++
++async function apiFetch(path, options = {}) {
++    const tokens = loadTokens();
++    const headers = {
++        'Content-Type': 'application/json',
++        ...(options.headers || {}),
++    };
++
++    if (tokens?.access) {
++        headers.Authorization = `Bearer ${tokens.access}`;
++    }
++
++    const response = await fetch(`${API_BASE_URL}${path}`, {
++        ...options,
++        headers,
++    });
++
++    if (response.status === 204) {
++        return null;
++    }
++
++    const data = await safeJson(response);
++
++    if (!response.ok) {
++        const message = data?.detail || data?.error || 'Erro ao comunicar com o servidor.';
++        throw new Error(message);
++    }
++
++    return data;
++}
++
++async function safeJson(response) {
++    try {
++        return await response.json();
++    } catch (error) {
++        return null;
++    }
++}
+diff --git a/frontend/js/quiz-session.js b/frontend/js/quiz-session.js
+index 8ef43818c8340a64d36a3070d1a764f72b48c06a..5840e0e651a049258c224453ca75b0e6457030cc 100644
+--- a/frontend/js/quiz-session.js
++++ b/frontend/js/quiz-session.js
+@@ -397,50 +397,51 @@ async function handleSubmitAttempt() {
+     selectors.questionFeedback.textContent = 'Enviando suas respostas...';
+     delete selectors.questionFeedback.dataset.status;
+ 
+     const payload = {
+         quiz_id: state.quiz.id,
+         answers: answeredQuestions.map(({ question, answer }) => ({
+             question_id: question.id,
+             user_answer: answer.answer,
+         })),
+     };
+ 
+     try {
+         const attempt = await apiFetch('/assessment/submit-attempt/', {
+             method: 'POST',
+             body: JSON.stringify(payload),
+         });
+ 
+         selectors.questionFeedback.textContent = 'Tentativa enviada com sucesso!';
+         selectors.questionFeedback.dataset.status = 'success';
+         state.submittedAttempt = attempt;
+         state.attempts = [attempt, ...state.attempts].sort(
+             (a, b) => new Date(b.completed_at) - new Date(a.completed_at)
+         );
+         renderAttemptSummary();
+         renderResultsPanel();
++        redirectToResults(attempt);
+     } catch (error) {
+         console.error('Falha ao enviar tentativa:', error);
+         selectors.questionFeedback.textContent = error.message || 'Não foi possível enviar suas respostas.';
+         selectors.questionFeedback.dataset.status = 'error';
+     } finally {
+         selectors.submitQuiz.disabled = false;
+     }
+ }
+ 
+ function renderAttemptSummary() {
+     if (!state.attempts.length) {
+         selectors.attemptSummary.textContent = 'Nenhuma tentativa enviada ainda.';
+         return;
+     }
+ 
+     const latest = state.attempts[0];
+     const date = latest.completed_at ? new Date(latest.completed_at) : null;
+     const score = latest.score != null ? `${Math.round(latest.score)}%` : '—';
+     const formattedDate = date ? date.toLocaleString('pt-BR') : '—';
+     selectors.attemptSummary.textContent = `Última tentativa: ${score} em ${formattedDate}`;
+ }
+ 
+ function renderResultsPanel() {
+     const attempt = state.submittedAttempt || state.attempts[0];
+     if (!attempt) {
+@@ -513,50 +514,63 @@ function normalizeChoices(choices) {
+         return choices.map((choice, index) => [String.fromCharCode(65 + index), choice]);
+     }
+ 
+     return Object.entries(choices).sort((a, b) => a[0].localeCompare(b[0]));
+ }
+ 
+ function resolveChoiceLabel(choices, key) {
+     if (!key) {
+         return null;
+     }
+ 
+     if (choices) {
+         if (Array.isArray(choices)) {
+             const index = Number(key);
+             if (!Number.isNaN(index) && choices[index] !== undefined) {
+                 return choices[index];
+             }
+         } else if (choices[key] !== undefined) {
+             return choices[key];
+         }
+     }
+ 
+     return null;
+ }
+ 
++function redirectToResults(attempt) {
++    if (!attempt?.id) {
++        return;
++    }
++
++    const url = new URL('quiz-results.html', window.location.href);
++    url.searchParams.set('attemptId', attempt.id);
++    if (attempt.quiz) {
++        url.searchParams.set('quizId', attempt.quiz);
++    }
++    window.location.href = url.toString();
++}
++
+ function handleTimerToggle() {
+     state.timer.enabled = Boolean(selectors.timerEnabled?.checked);
+     if (!state.timer.enabled) {
+         pauseTimer('Timer desativado');
+         selectors.timerStatus.textContent = 'Timer desativado';
+         selectors.timerStart.disabled = true;
+         selectors.timerPause.disabled = true;
+         selectors.timerReset.disabled = true;
+         selectors.timerDuration.disabled = true;
+     } else {
+         selectors.timerStatus.textContent = 'Pronto para iniciar';
+         selectors.timerStart.disabled = false;
+         selectors.timerPause.disabled = false;
+         selectors.timerReset.disabled = false;
+         selectors.timerDuration.disabled = false;
+         resetTimer();
+     }
+ }
+ 
+ function handleTimerDurationChange() {
+     const minutes = Number(selectors.timerDuration?.value);
+     if (Number.isFinite(minutes) && minutes >= 1 && minutes <= 180) {
+         if (state.timer.running) {
+             pauseTimer();
+         }
+diff --git a/frontend/js/quizzes.js b/frontend/js/quizzes.js
+index 838ef592097f4e4e12ac9428909bbf47b0cd528e..5a3ddc468093c7b1f4c490c75c7a4e5cc1d4e8b6 100644
+--- a/frontend/js/quizzes.js
++++ b/frontend/js/quizzes.js
+@@ -407,50 +407,64 @@ function renderQuizList(quizzes) {
+ 
+             const badge = card.querySelector('[data-status]');
+             badge.dataset.status = quiz.status;
+             badge.textContent = statusLabel(quiz.status);
+ 
+             const score = quiz.bestScore;
+             card.querySelector('.quiz-card__score').textContent = score == null ? '—' : `${Math.round(score)}%`;
+ 
+             const createdAt = new Date(quiz.created_at);
+             const timeElement = card.querySelector('.quiz-card__date');
+             timeElement.dateTime = createdAt.toISOString();
+             timeElement.textContent = `Criado em ${formatDate(createdAt)}`;
+ 
+             const topicLink = card.querySelector('[data-topic-link]');
+             topicLink.href = `study.html?topicId=${encodeURIComponent(quiz.topic)}`;
+             topicLink.textContent = 'Ver tópico';
+ 
+             const startLink = card.querySelector('[data-start-link]');
+             if (startLink) {
+                 const label = startActionLabel(quiz.status);
+                 startLink.href = `quiz.html?quizId=${encodeURIComponent(quiz.id)}`;
+                 startLink.textContent = label;
+                 startLink.setAttribute('aria-label', `${label} - ${quiz.title}`);
+             }
+ 
++            const resultsLink = card.querySelector('[data-results-link]');
++            if (resultsLink) {
++                if (quiz.latestAttempt) {
++                    resultsLink.href = `quiz-results.html?attemptId=${encodeURIComponent(quiz.latestAttempt.id)}`;
++                    resultsLink.textContent = 'Ver resultados';
++                    resultsLink.removeAttribute('aria-disabled');
++                    resultsLink.setAttribute('aria-label', `Resultados do quiz ${quiz.title}`);
++                } else {
++                    resultsLink.href = '#';
++                    resultsLink.textContent = 'Sem resultados';
++                    resultsLink.setAttribute('aria-disabled', 'true');
++                }
++            }
++
+             list.append(card);
+         });
+ 
+         selectors.listContainer.append(group);
+     });
+ }
+ 
+ function statusLabel(status) {
+     switch (status) {
+         case 'NOT_STARTED':
+             return 'Não iniciado';
+         case 'IN_PROGRESS':
+             return 'Em progresso';
+         case 'COMPLETED':
+             return 'Concluído';
+         default:
+             return status;
+     }
+ }
+ 
+ function startActionLabel(status) {
+     switch (status) {
+         case 'COMPLETED':
+             return 'Refazer quiz';
+         case 'IN_PROGRESS':
+diff --git a/frontend/quiz-results.html b/frontend/quiz-results.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..8e87fde003725f85a4555418ee42a696e41f35d5
+--- /dev/null
++++ b/frontend/quiz-results.html
+@@ -0,0 +1,154 @@
++<!DOCTYPE html>
++<html lang="pt-BR">
++<head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Assistente de Estudos - Resultados do Quiz</title>
++    <link rel="stylesheet" href="styles/dashboard.css" />
++    <link rel="stylesheet" href="styles/quiz-results.css" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
++        rel="stylesheet"
++    />
++</head>
++<body data-api-base="http://localhost:8000/api">
++    <div class="app-shell">
++        <header class="app-header">
++            <div class="logo-area">
++                <div class="logo">PI2</div>
++                <div class="header-text">
++                    <h1>Assistente de Estudos</h1>
++                    <p>Confira seus resultados e aprenda com cada tentativa</p>
++                </div>
++            </div>
++            <div class="results-nav">
++                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
++                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
++                <span id="user-greeting" class="user-greeting">Olá!</span>
++                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
++            </div>
++        </header>
++
++        <main class="quiz-results-layout" aria-live="polite">
++            <section class="panel results-hero" aria-label="Destaque da pontuação">
++                <header class="results-hero__header">
++                    <span class="panel-subtitle">Resultados do Quiz</span>
++                    <h2 id="quiz-title">Carregando...</h2>
++                    <p id="quiz-description" class="panel-subtitle"></p>
++                </header>
++                <div class="results-hero__grid">
++                    <div class="score-display" aria-live="assertive" aria-atomic="true">
++                        <span class="score-display__label">Pontuação</span>
++                        <strong id="score-value" class="score-display__value">--%</strong>
++                        <p id="score-feedback" class="score-display__feedback"></p>
++                    </div>
++                    <dl class="score-stats">
++                        <div>
++                            <dt>Acertos</dt>
++                            <dd id="stat-correct">--</dd>
++                        </div>
++                        <div>
++                            <dt>Erros</dt>
++                            <dd id="stat-incorrect">--</dd>
++                        </div>
++                        <div>
++                            <dt>Total de questões</dt>
++                            <dd id="stat-total">--</dd>
++                        </div>
++                        <div>
++                            <dt>Data da tentativa</dt>
++                            <dd id="stat-date">--</dd>
++                        </div>
++                    </dl>
++                </div>
++                <div class="results-actions" role="group" aria-label="Ações rápidas">
++                    <a id="retry-quiz" class="primary-button" href="#">Refazer quiz</a>
++                    <a id="back-to-quizzes" class="ghost-button" href="quizzes.html">Voltar à central</a>
++                    <a id="next-quiz" class="ghost-button" href="#">Próximo quiz</a>
++                </div>
++            </section>
++
++            <section class="panel results-analysis" aria-label="Análise por dificuldade">
++                <header class="results-analysis__header">
++                    <h2>Análise por dificuldade</h2>
++                    <p class="panel-subtitle">Entenda onde você foi melhor e onde pode melhorar</p>
++                </header>
++                <ul id="difficulty-breakdown" class="difficulty-breakdown"></ul>
++            </section>
++
++            <section class="panel results-review" aria-label="Revisão detalhada das questões">
++                <header>
++                    <h2>Revisão detalhada</h2>
++                    <p class="panel-subtitle">Cada pergunta com explicação passo a passo</p>
++                </header>
++                <div id="review-container" class="review-container"></div>
++            </section>
++        </main>
++    </div>
++
++    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
++        <form id="login-form" class="login-card">
++            <h2>Entrar</h2>
++            <p>Acesse sua conta para visualizar seus resultados.</p>
++            <label for="email">E-mail</label>
++            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
++            <label for="password">Senha</label>
++            <input
++                id="password"
++                name="password"
++                type="password"
++                required
++                autocomplete="current-password"
++                placeholder="••••••••"
++            />
++            <button type="submit" class="primary-button">Entrar</button>
++            <p id="login-error" class="form-error" role="alert"></p>
++        </form>
++    </div>
++
++    <template id="review-item-template">
++        <article class="review-item" data-status>
++            <header class="review-item__header">
++                <h3 class="review-item__title"></h3>
++                <span class="review-item__badge" data-status-text></span>
++            </header>
++            <p class="review-item__question"></p>
++            <dl class="review-item__meta">
++                <div>
++                    <dt>Sua resposta</dt>
++                    <dd class="review-item__answer"></dd>
++                </div>
++                <div>
++                    <dt>Resposta correta</dt>
++                    <dd class="review-item__correct"></dd>
++                </div>
++                <div>
++                    <dt>Dificuldade</dt>
++                    <dd class="review-item__difficulty"></dd>
++                </div>
++            </dl>
++            <div class="review-item__explanation">
++                <h4>Explicação</h4>
++                <p class="review-item__explanation-text"></p>
++            </div>
++        </article>
++    </template>
++
++    <template id="difficulty-item-template">
++        <li class="difficulty-item">
++            <div class="difficulty-item__header">
++                <h3 class="difficulty-item__title"></h3>
++                <span class="difficulty-item__ratio"></span>
++            </div>
++            <div class="difficulty-item__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
++                <div class="difficulty-item__bar-fill" style="width: 0%"></div>
++            </div>
++            <p class="difficulty-item__details"></p>
++        </li>
++    </template>
++
++    <script src="js/quiz-results.js" type="module"></script>
++</body>
++</html>
+diff --git a/frontend/quizzes.html b/frontend/quizzes.html
+index 4cc5494e7f79cdbd797b3b745e5edcc50eb1f697..8a27ac0b57073b764e66467601df53cd1eee88d4 100644
+--- a/frontend/quizzes.html
++++ b/frontend/quizzes.html
+@@ -160,44 +160,45 @@
+     <template id="quiz-card-template">
+         <article class="quiz-card">
+             <header class="quiz-card__header">
+                 <h3 class="quiz-card__title"></h3>
+                 <span class="quiz-card__badge" data-status></span>
+             </header>
+             <p class="quiz-card__description"></p>
+             <dl class="quiz-card__meta">
+                 <div>
+                     <dt>Dificuldade</dt>
+                     <dd class="quiz-card__difficulty"></dd>
+                 </div>
+                 <div>
+                     <dt>Questões</dt>
+                     <dd class="quiz-card__questions"></dd>
+                 </div>
+                 <div>
+                     <dt>Última nota</dt>
+                     <dd class="quiz-card__score"></dd>
+                 </div>
+             </dl>
+             <footer class="quiz-card__footer">
+                 <time class="quiz-card__date" datetime=""></time>
+                 <div class="quiz-card__actions">
+                     <a class="primary-button primary-button--small" href="#" data-start-link>Resolver quiz</a>
++                    <a class="ghost-button ghost-button--small" href="#" data-results-link>Ver resultados</a>
+                     <a class="ghost-button ghost-button--small" href="#" data-topic-link>Ver tópico</a>
+                 </div>
+             </footer>
+         </article>
+     </template>
+ 
+     <template id="topic-group-template">
+         <section class="quiz-topic-group">
+             <header class="quiz-topic-group__header">
+                 <h3 class="quiz-topic-group__title"></h3>
+                 <span class="quiz-topic-group__count"></span>
+             </header>
+             <div class="quiz-topic-group__list"></div>
+         </section>
+     </template>
+ 
+     <script src="js/quizzes.js" type="module"></script>
+ </body>
+ </html>
+diff --git a/frontend/styles/quiz-results.css b/frontend/styles/quiz-results.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..685c95169f50012b8a8b35422da09fb9ec26540b
+--- /dev/null
++++ b/frontend/styles/quiz-results.css
+@@ -0,0 +1,310 @@
++:root {
++    --score-gradient-start: #6366f1;
++    --score-gradient-end: #22d3ee;
++    --score-shadow: rgba(99, 102, 241, 0.35);
++    --correct-color: #22c55e;
++    --incorrect-color: #ef4444;
++}
++
++.quiz-results-layout {
++    display: grid;
++    gap: 1.5rem;
++    padding: 2rem;
++    max-width: 1080px;
++    margin: 0 auto;
++}
++
++.results-nav {
++    display: flex;
++    align-items: center;
++    gap: 0.75rem;
++    flex-wrap: wrap;
++}
++
++.results-hero {
++    display: grid;
++    gap: 1.75rem;
++}
++
++.results-hero__header {
++    display: grid;
++    gap: 0.25rem;
++}
++
++.results-hero__grid {
++    display: grid;
++    gap: 1.5rem;
++    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
++    align-items: center;
++}
++
++.score-display {
++    background: linear-gradient(135deg, var(--score-gradient-start), var(--score-gradient-end));
++    color: white;
++    padding: 2.25rem 1.5rem;
++    border-radius: 1.75rem;
++    text-align: center;
++    box-shadow: 0 25px 50px -20px var(--score-shadow);
++    position: relative;
++    overflow: hidden;
++}
++
++.score-display::after {
++    content: "";
++    position: absolute;
++    inset: 0;
++    background: radial-gradient(circle at top, rgba(255, 255, 255, 0.35), transparent 60%);
++    opacity: 0.6;
++}
++
++.score-display__label {
++    font-size: 0.95rem;
++    font-weight: 500;
++    letter-spacing: 0.06em;
++    text-transform: uppercase;
++    opacity: 0.85;
++    position: relative;
++    z-index: 1;
++}
++
++.score-display__value {
++    font-size: clamp(2.5rem, 5vw, 3.75rem);
++    font-weight: 700;
++    display: block;
++    margin: 0.5rem 0;
++    position: relative;
++    z-index: 1;
++}
++
++.score-display__feedback {
++    font-size: 1rem;
++    opacity: 0.9;
++    margin: 0;
++    position: relative;
++    z-index: 1;
++}
++
++.score-display--animate .score-display__value {
++    animation: scorePop 700ms ease;
++}
++
++@keyframes scorePop {
++    0% {
++        transform: scale(0.85);
++        opacity: 0;
++    }
++    60% {
++        transform: scale(1.08);
++        opacity: 1;
++    }
++    100% {
++        transform: scale(1);
++        opacity: 1;
++    }
++}
++
++.score-stats {
++    display: grid;
++    gap: 1rem;
++    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
++}
++
++.score-stats dt {
++    font-size: 0.85rem;
++    color: var(--muted-foreground);
++}
++
++.score-stats dd {
++    font-size: 1.35rem;
++    font-weight: 600;
++    margin: 0.25rem 0 0;
++}
++
++.results-actions {
++    display: flex;
++    gap: 0.75rem;
++    flex-wrap: wrap;
++}
++
++.results-actions a {
++    text-decoration: none;
++}
++
++.results-actions a[aria-disabled="true"] {
++    pointer-events: none;
++    opacity: 0.5;
++}
++
++.results-analysis {
++    display: grid;
++    gap: 1.5rem;
++}
++
++.difficulty-breakdown {
++    display: grid;
++    gap: 1rem;
++    list-style: none;
++    padding: 0;
++    margin: 0;
++}
++
++.difficulty-item {
++    background: var(--surface-secondary, #f1f5f9);
++    border-radius: 1.25rem;
++    padding: 1.25rem;
++    display: grid;
++    gap: 0.75rem;
++}
++
++.difficulty-item__header {
++    display: flex;
++    justify-content: space-between;
++    align-items: baseline;
++    gap: 1rem;
++}
++
++.difficulty-item__title {
++    font-size: 1rem;
++    font-weight: 600;
++}
++
++.difficulty-item__ratio {
++    font-size: 0.95rem;
++    color: var(--muted-foreground);
++}
++
++.difficulty-item__bar {
++    background: rgba(148, 163, 184, 0.35);
++    border-radius: 999px;
++    height: 10px;
++    overflow: hidden;
++}
++
++.difficulty-item__bar-fill {
++    height: 100%;
++    background: linear-gradient(135deg, rgba(34, 197, 94, 0.85), rgba(59, 130, 246, 0.9));
++    border-radius: inherit;
++    transition: width 450ms ease;
++}
++
++.difficulty-item__details {
++    margin: 0;
++    font-size: 0.95rem;
++    color: var(--muted-foreground);
++}
++
++.results-review {
++    display: grid;
++    gap: 1.25rem;
++}
++
++.review-container {
++    display: grid;
++    gap: 1rem;
++}
++
++.review-item {
++    border: 1px solid rgba(15, 23, 42, 0.08);
++    border-radius: 1.25rem;
++    padding: 1.25rem;
++    background: white;
++    box-shadow: 0 10px 25px -20px rgba(15, 23, 42, 0.45);
++    display: grid;
++    gap: 1rem;
++}
++
++.review-item[data-status="correct"] {
++    border-color: rgba(34, 197, 94, 0.35);
++}
++
++.review-item[data-status="incorrect"] {
++    border-color: rgba(239, 68, 68, 0.35);
++}
++
++.review-item__header {
++    display: flex;
++    justify-content: space-between;
++    align-items: baseline;
++    gap: 1rem;
++}
++
++.review-item__title {
++    font-size: 1.05rem;
++    font-weight: 600;
++}
++
++.review-item__badge {
++    font-size: 0.85rem;
++    font-weight: 600;
++    padding: 0.35rem 0.65rem;
++    border-radius: 999px;
++    text-transform: uppercase;
++    letter-spacing: 0.05em;
++}
++
++.review-item[data-status="correct"] .review-item__badge {
++    background: rgba(34, 197, 94, 0.15);
++    color: var(--correct-color);
++}
++
++.review-item[data-status="incorrect"] .review-item__badge {
++    background: rgba(239, 68, 68, 0.15);
++    color: var(--incorrect-color);
++}
++
++.review-item__question {
++    margin: 0;
++    font-size: 1.05rem;
++}
++
++.review-item__meta {
++    display: grid;
++    gap: 1rem;
++    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
++}
++
++.review-item__meta dt {
++    font-size: 0.85rem;
++    color: var(--muted-foreground);
++}
++
++.review-item__meta dd {
++    margin: 0.15rem 0 0;
++    font-weight: 500;
++}
++
++.review-item__explanation {
++    background: rgba(99, 102, 241, 0.08);
++    border-radius: 1rem;
++    padding: 1rem;
++}
++
++.review-item__explanation h4 {
++    margin: 0 0 0.5rem;
++    font-size: 0.95rem;
++    font-weight: 600;
++}
++
++.review-item__explanation-text {
++    margin: 0;
++    color: var(--muted-foreground);
++}
++
++@media (max-width: 720px) {
++    .quiz-results-layout {
++        padding: 1.5rem 1rem 2.5rem;
++    }
++
++    .score-display {
++        padding: 2rem 1.25rem;
++    }
++
++    .results-actions {
++        flex-direction: column;
++        align-items: stretch;
++    }
++
++    .results-actions a {
++        text-align: center;
++    }
++}
+diff --git a/frontend/styles/quizzes.css b/frontend/styles/quizzes.css
+index fd5f0d3d182b63095a9cb6743bd33a0329f20a82..d57a17e06f6ae0813aeef31a3bd82e6cd8ee3498 100644
+--- a/frontend/styles/quizzes.css
++++ b/frontend/styles/quizzes.css
+@@ -150,50 +150,56 @@
+ .quiz-card__footer {
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     gap: 1rem;
+     flex-wrap: wrap;
+ }
+ 
+ .quiz-card__date {
+     font-size: 0.85rem;
+     color: var(--muted-foreground);
+ }
+ 
+ .quiz-card__actions {
+     display: flex;
+     align-items: center;
+     gap: 0.75rem;
+     flex-wrap: wrap;
+     justify-content: flex-end;
+ }
+ 
+ .quiz-card__actions .primary-button {
+     text-decoration: none;
+ }
+ 
++.quiz-card__actions a[aria-disabled="true"] {
++    pointer-events: none;
++    opacity: 0.5;
++    cursor: default;
++}
++
+ .modal {
+     position: fixed;
+     inset: 0;
+     background: rgba(15, 23, 42, 0.55);
+     display: grid;
+     place-items: center;
+     padding: 2rem;
+     z-index: 20;
+ }
+ 
+ .modal[aria-hidden="true"] {
+     display: none;
+ }
+ 
+ .modal__content {
+     background: white;
+     border-radius: 1.5rem;
+     padding: 2rem;
+     width: min(520px, 100%);
+     display: grid;
+     gap: 1.5rem;
+     position: relative;
+     box-shadow: 0 30px 50px -25px rgba(15, 23, 42, 0.45);
+ }
+ 
+diff --git a/tests/integration/test_assessment.py b/tests/integration/test_assessment.py
+index 8e12f9756683a3e3c635a71af27bf0524f7da348..1f0b82ec1d716c1658515439280d0ce694f53da4 100644
+--- a/tests/integration/test_assessment.py
++++ b/tests/integration/test_assessment.py
+@@ -356,50 +356,56 @@ class TestAttemptSubmission:
+         data = {
+             'quiz_id': quiz.id,
+             'answers': []
+         }
+         
+         response = authenticated_client.post(url, data, format='json')
+         
+         assert response.status_code == status.HTTP_400_BAD_REQUEST
+ 
+     def test_submit_attempt_case_insensitive(self, authenticated_client, quiz, questions):
+         """Testa que a comparação de respostas é case-insensitive."""
+         url = reverse('submit-attempt')
+         data = {
+             'quiz_id': quiz.id,
+             'answers': [
+                 {'question_id': questions[0].id, 'user_answer': 'a'},  # Minúsculo
+                 {'question_id': questions[1].id, 'user_answer': 'b'},  # Minúsculo
+             ]
+         }
+         
+         response = authenticated_client.post(url, data, format='json')
+         
+         assert response.status_code == status.HTTP_201_CREATED
+         assert response.data['score'] == 100.0  # Ambas corretas
+ 
++        # As respostas retornam a justificativa e a alternativa correta
++        answers = response.data['answers']
++        assert len(answers) == 2
++        assert answers[0]['explanation'] == questions[0].explanation
++        assert answers[0]['correct_answer'] == questions[0].correct_answer
++
+ @pytest.mark.django_db
+ class TestAttemptViewSet:
+     """Testes do ViewSet de Tentativas."""
+     
+     def test_list_user_attempts(self, authenticated_client, user, quiz, questions):
+         """Testa listagem de tentativas do usuário."""
+         # Criar uma tentativa
+         attempt = Attempt.objects.create(
+             user=user,
+             quiz=quiz,
+             score=75.0,
+             correct_answers_count=1,
+             incorrect_answers_count=1
+         )
+         
+         url = reverse('attempt-list')
+         response = authenticated_client.get(url)
+         
+         assert response.status_code == status.HTTP_200_OK
+         assert len(response.data) == 1
+         assert response.data[0]['score'] == 75.0
+ 
+     def test_attempt_detail_with_answers(self, authenticated_client, user, quiz, questions):
+         """Testa detalhes de uma tentativa com respostas."""
+         attempt = Attempt.objects.create(
+@@ -409,46 +415,50 @@ class TestAttemptViewSet:
+             correct_answers_count=1,
+             incorrect_answers_count=1
+         )
+         
+         # Criar respostas
+         Answer.objects.create(
+             attempt=attempt,
+             question=questions[0],
+             user_answer='A',
+             is_correct=True
+         )
+         Answer.objects.create(
+             attempt=attempt,
+             question=questions[1],
+             user_answer='C',
+             is_correct=False
+         )
+         
+         url = reverse('attempt-detail', args=[attempt.id])
+         response = authenticated_client.get(url)
+         
+         assert response.status_code == status.HTTP_200_OK
+         assert response.data['score'] == 50.0
+         assert len(response.data['answers']) == 2
+ 
++        first_answer = response.data['answers'][0]
++        assert first_answer['explanation'] == questions[0].explanation
++        assert first_answer['correct_answer'] == questions[0].correct_answer
++
+     def test_user_cannot_see_other_attempts(self, api_client, other_user, user, quiz):
+         """Testa que usuário não vê tentativas de outros."""
+         # Criar tentativa para outro usuário
+         other_attempt = Attempt.objects.create(
+             user=other_user,
+             quiz=quiz,
+             score=80.0,
+             correct_answers_count=1,
+             incorrect_answers_count=0
+         )
+         
+         # Login como usuário original
+         from rest_framework_simplejwt.tokens import RefreshToken
+         refresh = RefreshToken.for_user(user)
+         api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+         
+         url = reverse('attempt-list')
+         response = api_client.get(url)
+         
+         assert response.status_code == status.HTTP_200_OK
+         assert len(response.data) == 0
+\ No newline at end of file

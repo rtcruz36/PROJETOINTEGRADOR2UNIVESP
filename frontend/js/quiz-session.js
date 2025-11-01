@@ -419,6 +419,7 @@ async function handleSubmitAttempt() {
         );
         renderAttemptSummary();
         renderResultsPanel();
+        redirectToResults(attempt);
     } catch (error) {
         console.error('Falha ao enviar tentativa:', error);
         selectors.questionFeedback.textContent = error.message || 'Não foi possível enviar suas respostas.';
@@ -533,6 +534,19 @@ function resolveChoiceLabel(choices, key) {
     }
 
     return null;
+}
+
+function redirectToResults(attempt) {
+    if (!attempt?.id) {
+        return;
+    }
+
+    const url = new URL('quiz-results.html', window.location.href);
+    url.searchParams.set('attemptId', attempt.id);
+    if (attempt.quiz) {
+        url.searchParams.set('quizId', attempt.quiz);
+    }
+    window.location.href = url.toString();
 }
 
 function handleTimerToggle() {

@@ -172,6 +172,12 @@
     text-decoration: none;
 }
 
+.quiz-card__actions a[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: default;
+}
+
 .modal {
     position: fixed;
     inset: 0;

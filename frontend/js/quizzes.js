@@ -429,6 +429,20 @@ function renderQuizList(quizzes) {
                 startLink.setAttribute('aria-label', `${label} - ${quiz.title}`);
             }
 
+            const resultsLink = card.querySelector('[data-results-link]');
+            if (resultsLink) {
+                if (quiz.latestAttempt) {
+                    resultsLink.href = `quiz-results.html?attemptId=${encodeURIComponent(quiz.latestAttempt.id)}`;
+                    resultsLink.textContent = 'Ver resultados';
+                    resultsLink.removeAttribute('aria-disabled');
+                    resultsLink.setAttribute('aria-label', `Resultados do quiz ${quiz.title}`);
+                } else {
+                    resultsLink.href = '#';
+                    resultsLink.textContent = 'Sem resultados';
+                    resultsLink.setAttribute('aria-disabled', 'true');
+                }
+            }
+
             list.append(card);
         });
 

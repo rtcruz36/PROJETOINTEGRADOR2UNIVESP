@@ -378,6 +378,12 @@ class TestAttemptSubmission:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['score'] == 100.0  # Ambas corretas
 
+        # As respostas retornam a justificativa e a alternativa correta
+        answers = response.data['answers']
+        assert len(answers) == 2
+        assert answers[0]['explanation'] == questions[0].explanation
+        assert answers[0]['correct_answer'] == questions[0].correct_answer
+
 @pytest.mark.django_db
 class TestAttemptViewSet:
     """Testes do ViewSet de Tentativas."""
@@ -430,6 +436,10 @@ class TestAttemptViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['score'] == 50.0
         assert len(response.data['answers']) == 2
+
+        first_answer = response.data['answers'][0]
+        assert first_answer['explanation'] == questions[0].explanation
+        assert first_answer['correct_answer'] == questions[0].correct_answer
 
     def test_user_cannot_see_other_attempts(self, api_client, other_user, user, quiz):
         """Testa que usuário não vê tentativas de outros."""

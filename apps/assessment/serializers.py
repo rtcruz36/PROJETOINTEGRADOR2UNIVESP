@@ -69,10 +69,12 @@ class QuestionManageSerializer(serializers.ModelSerializer):
 class AnswerDetailSerializer(serializers.ModelSerializer):
     """Serializador para mostrar os detalhes de uma resposta dada pelo usuário."""
     question = QuestionSerializer(read_only=True)
+    explanation = serializers.CharField(source='question.explanation', read_only=True)
+    correct_answer = serializers.CharField(source='question.correct_answer', read_only=True)
 
     class Meta:
         model = Answer
-        fields = ['question', 'user_answer', 'is_correct']
+        fields = ['question', 'user_answer', 'is_correct', 'explanation', 'correct_answer']
 
 class AttemptDetailSerializer(serializers.ModelSerializer):
     """Serializador para mostrar o resultado detalhado de uma tentativa."""

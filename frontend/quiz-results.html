@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Resultados do Quiz</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/quiz-results.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Confira seus resultados e aprenda com cada tentativa</p>
+                </div>
+            </div>
+            <div class="results-nav">
+                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="quiz-results-layout" aria-live="polite">
+            <section class="panel results-hero" aria-label="Destaque da pontuação">
+                <header class="results-hero__header">
+                    <span class="panel-subtitle">Resultados do Quiz</span>
+                    <h2 id="quiz-title">Carregando...</h2>
+                    <p id="quiz-description" class="panel-subtitle"></p>
+                </header>
+                <div class="results-hero__grid">
+                    <div class="score-display" aria-live="assertive" aria-atomic="true">
+                        <span class="score-display__label">Pontuação</span>
+                        <strong id="score-value" class="score-display__value">--%</strong>
+                        <p id="score-feedback" class="score-display__feedback"></p>
+                    </div>
+                    <dl class="score-stats">
+                        <div>
+                            <dt>Acertos</dt>
+                            <dd id="stat-correct">--</dd>
+                        </div>
+                        <div>
+                            <dt>Erros</dt>
+                            <dd id="stat-incorrect">--</dd>
+                        </div>
+                        <div>
+                            <dt>Total de questões</dt>
+                            <dd id="stat-total">--</dd>
+                        </div>
+                        <div>
+                            <dt>Data da tentativa</dt>
+                            <dd id="stat-date">--</dd>
+                        </div>
+                    </dl>
+                </div>
+                <div class="results-actions" role="group" aria-label="Ações rápidas">
+                    <a id="retry-quiz" class="primary-button" href="#">Refazer quiz</a>
+                    <a id="back-to-quizzes" class="ghost-button" href="quizzes.html">Voltar à central</a>
+                    <a id="next-quiz" class="ghost-button" href="#">Próximo quiz</a>
+                </div>
+            </section>
+
+            <section class="panel results-analysis" aria-label="Análise por dificuldade">
+                <header class="results-analysis__header">
+                    <h2>Análise por dificuldade</h2>
+                    <p class="panel-subtitle">Entenda onde você foi melhor e onde pode melhorar</p>
+                </header>
+                <ul id="difficulty-breakdown" class="difficulty-breakdown"></ul>
+            </section>
+
+            <section class="panel results-review" aria-label="Revisão detalhada das questões">
+                <header>
+                    <h2>Revisão detalhada</h2>
+                    <p class="panel-subtitle">Cada pergunta com explicação passo a passo</p>
+                </header>
+                <div id="review-container" class="review-container"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para visualizar seus resultados.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="••••••••"
+            />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <template id="review-item-template">
+        <article class="review-item" data-status>
+            <header class="review-item__header">
+                <h3 class="review-item__title"></h3>
+                <span class="review-item__badge" data-status-text></span>
+            </header>
+            <p class="review-item__question"></p>
+            <dl class="review-item__meta">
+                <div>
+                    <dt>Sua resposta</dt>
+                    <dd class="review-item__answer"></dd>
+                </div>
+                <div>
+                    <dt>Resposta correta</dt>
+                    <dd class="review-item__correct"></dd>
+                </div>
+                <div>
+                    <dt>Dificuldade</dt>
+                    <dd class="review-item__difficulty"></dd>
+                </div>
+            </dl>
+            <div class="review-item__explanation">
+                <h4>Explicação</h4>
+                <p class="review-item__explanation-text"></p>
+            </div>
+        </article>
+    </template>
+
+    <template id="difficulty-item-template">
+        <li class="difficulty-item">
+            <div class="difficulty-item__header">
+                <h3 class="difficulty-item__title"></h3>
+                <span class="difficulty-item__ratio"></span>
+            </div>
+            <div class="difficulty-item__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="difficulty-item__bar-fill" style="width: 0%"></div>
+            </div>
+            <p class="difficulty-item__details"></p>
+        </li>
+    </template>
+
+    <script src="js/quiz-results.js" type="module"></script>
+</body>
+</html>
