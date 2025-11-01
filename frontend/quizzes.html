@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Central de Quizzes</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/quizzes.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Central de quizzes personalizada para o seu progresso</p>
+                </div>
+            </div>
+            <div class="quiz-nav">
+                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="quiz-layout">
+            <section class="panel quiz-summary" aria-label="Resumo dos quizzes">
+                <header class="quiz-summary__header">
+                    <div>
+                        <span class="panel-subtitle">Status geral</span>
+                        <h2>Central de Quizzes</h2>
+                    </div>
+                    <button id="generate-quiz" class="primary-button" type="button">Gerar novo quiz</button>
+                </header>
+                <dl class="quiz-summary__stats">
+                    <div>
+                        <dt>Total de quizzes</dt>
+                        <dd id="stat-total">--</dd>
+                    </div>
+                    <div>
+                        <dt>Não iniciados</dt>
+                        <dd id="stat-not-started">--</dd>
+                    </div>
+                    <div>
+                        <dt>Em progresso</dt>
+                        <dd id="stat-in-progress">--</dd>
+                    </div>
+                    <div>
+                        <dt>Concluídos</dt>
+                        <dd id="stat-completed">--</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <section class="panel quiz-filters" aria-label="Filtros dos quizzes">
+                <h2>Filtrar quizzes</h2>
+                <div class="quiz-filters__fields">
+                    <label class="filter-field" for="filter-topic">
+                        <span>Tópico</span>
+                        <select id="filter-topic" class="library-select">
+                            <option value="all">Todos os tópicos</option>
+                        </select>
+                    </label>
+                    <label class="filter-field" for="filter-difficulty">
+                        <span>Dificuldade</span>
+                        <select id="filter-difficulty" class="library-select">
+                            <option value="all">Todas</option>
+                            <option value="EASY">Fácil</option>
+                            <option value="MODERATE">Moderada</option>
+                            <option value="HARD">Difícil</option>
+                            <option value="MIXED">Mista</option>
+                        </select>
+                    </label>
+                    <label class="filter-field" for="filter-status">
+                        <span>Status</span>
+                        <select id="filter-status" class="library-select">
+                            <option value="all">Todos</option>
+                            <option value="NOT_STARTED">Não iniciado</option>
+                            <option value="IN_PROGRESS">Em progresso</option>
+                            <option value="COMPLETED">Concluído</option>
+                        </select>
+                    </label>
+                    <label class="filter-field" for="filter-search">
+                        <span>Buscar</span>
+                        <input id="filter-search" type="search" placeholder="Título ou descrição" />
+                    </label>
+                </div>
+            </section>
+
+            <section class="panel quiz-list" aria-label="Lista de quizzes">
+                <header>
+                    <h2>Quizzes organizados por tópico</h2>
+                    <p id="quiz-list-feedback" class="panel-subtitle" role="status"></p>
+                </header>
+                <div id="quiz-list-container" class="quiz-topic-groups" aria-live="polite"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para visualizar seus quizzes.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <div id="generate-quiz-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal__content" role="document">
+            <header class="modal__header">
+                <h2>Gerar novo quiz</h2>
+                <button type="button" id="close-generate-modal" class="ghost-button ghost-button--small" aria-label="Fechar">✕</button>
+            </header>
+            <form id="generate-quiz-form" class="modal__form">
+                <p class="modal__description">
+                    Selecione o tópico e a distribuição de dificuldade. O Assistente criará o quiz automaticamente.
+                </p>
+                <label class="filter-field" for="generate-topic">
+                    <span>Tópico</span>
+                    <select id="generate-topic" name="topic" required></select>
+                </label>
+                <div class="modal__grid">
+                    <label class="filter-field" for="generate-easy">
+                        <span>Perguntas fáceis</span>
+                        <input id="generate-easy" name="num_easy" type="number" min="0" value="7" required />
+                    </label>
+                    <label class="filter-field" for="generate-moderate">
+                        <span>Perguntas moderadas</span>
+                        <input id="generate-moderate" name="num_moderate" type="number" min="0" value="7" required />
+                    </label>
+                    <label class="filter-field" for="generate-hard">
+                        <span>Perguntas difíceis</span>
+                        <input id="generate-hard" name="num_hard" type="number" min="0" value="6" required />
+                    </label>
+                </div>
+                <footer class="modal__footer">
+                    <p id="generate-feedback" class="form-feedback" role="status"></p>
+                    <div class="modal__actions">
+                        <button type="button" id="cancel-generate" class="ghost-button ghost-button--small">Cancelar</button>
+                        <button type="submit" id="submit-generate" class="primary-button">Gerar quiz</button>
+                    </div>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <template id="quiz-card-template">
+        <article class="quiz-card">
+            <header class="quiz-card__header">
+                <h3 class="quiz-card__title"></h3>
+                <span class="quiz-card__badge" data-status></span>
+            </header>
+            <p class="quiz-card__description"></p>
+            <dl class="quiz-card__meta">
+                <div>
+                    <dt>Dificuldade</dt>
+                    <dd class="quiz-card__difficulty"></dd>
+                </div>
+                <div>
+                    <dt>Questões</dt>
+                    <dd class="quiz-card__questions"></dd>
+                </div>
+                <div>
+                    <dt>Última nota</dt>
+                    <dd class="quiz-card__score"></dd>
+                </div>
+            </dl>
+            <footer class="quiz-card__footer">
+                <time class="quiz-card__date" datetime=""></time>
+                <a class="ghost-button ghost-button--small" href="#" data-topic-link>Ver tópico</a>
+            </footer>
+        </article>
+    </template>
+
+    <template id="topic-group-template">
+        <section class="quiz-topic-group">
+            <header class="quiz-topic-group__header">
+                <h3 class="quiz-topic-group__title"></h3>
+                <span class="quiz-topic-group__count"></span>
+            </header>
+            <div class="quiz-topic-group__list"></div>
+        </section>
+    </template>
+
+    <script src="js/quizzes.js" type="module"></script>
+</body>
+</html>
