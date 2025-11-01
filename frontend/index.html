@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Dashboard</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Resumo inteligente do seu progresso acadêmico</p>
+                </div>
+            </div>
+            <div class="user-actions">
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="content-area">
+            <section class="summary-cards" aria-label="Resumo do aprendizado">
+                <article class="summary-card">
+                    <span class="summary-icon" aria-hidden="true">📚</span>
+                    <div>
+                        <h2>Total de Cursos</h2>
+                        <p id="courses-count" class="summary-value">--</p>
+                    </div>
+                </article>
+                <article class="summary-card">
+                    <span class="summary-icon" aria-hidden="true">🧠</span>
+                    <div>
+                        <h2>Tópicos em andamento</h2>
+                        <p id="topics-in-progress" class="summary-value">--</p>
+                    </div>
+                </article>
+                <article class="summary-card">
+                    <span class="summary-icon" aria-hidden="true">✅</span>
+                    <div>
+                        <h2>Quizzes concluídos</h2>
+                        <p id="quizzes-completed" class="summary-value">--</p>
+                    </div>
+                </article>
+                <article class="summary-card">
+                    <span class="summary-icon" aria-hidden="true">🔥</span>
+                    <div>
+                        <h2>Sequência de estudo</h2>
+                        <p id="streak-info" class="summary-value">--</p>
+                    </div>
+                </article>
+            </section>
+
+            <section class="grid-layout">
+                <article class="panel chart-panel">
+                    <header>
+                        <h2>Tempo estudado nos últimos 7 dias</h2>
+                        <span id="study-total" class="panel-subtitle">-- minutos totais</span>
+                    </header>
+                    <canvas id="study-time-chart" role="img" aria-label="Gráfico do tempo de estudo"></canvas>
+                </article>
+
+                <article class="panel sessions-panel">
+                    <header>
+                        <h2>Próximas sessões de estudo</h2>
+                        <span class="panel-subtitle">Baseado no seu cronograma</span>
+                    </header>
+                    <ul id="upcoming-sessions" class="session-list" aria-live="polite"></ul>
+                </article>
+
+                <article class="panel quiz-panel">
+                    <header>
+                        <h2>Quiz recomendado do dia</h2>
+                        <span class="panel-subtitle">Escolhido com base no seu histórico</span>
+                    </header>
+                    <div id="recommended-quiz" class="quiz-card" aria-live="polite"></div>
+                </article>
+
+                <article class="panel progress-panel">
+                    <header>
+                        <h2>Progresso geral</h2>
+                        <span class="panel-subtitle">Subtópicos concluídos</span>
+                    </header>
+                    <div class="progress-wrapper">
+                        <svg class="progress-ring" viewBox="0 0 120 120" role="img" aria-label="Progresso geral">
+                            <defs>
+                                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#4c6ef5" />
+                                    <stop offset="100%" stop-color="#364fc7" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="progress-ring__background" cx="60" cy="60" r="54" />
+                            <circle class="progress-ring__progress" cx="60" cy="60" r="54" />
+                        </svg>
+                        <div class="progress-text">
+                            <p id="progress-percentage" class="progress-percentage">--%</p>
+                            <span id="progress-detail" class="progress-detail">--</span>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para visualizar o dashboard.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <template id="session-item-template">
+        <li class="session-item">
+            <div class="session-date"></div>
+            <div class="session-info">
+                <p class="session-message"></p>
+                <span class="session-duration"></span>
+            </div>
+        </li>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/dashboard.js" type="module"></script>
+</body>
+</html>
