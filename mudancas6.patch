@@ -1,0 +1,536 @@
+diff --git a/apps/learning/serializers.py b/apps/learning/serializers.py
+index b66754df5ba0b4fda3cf9226c15983255d45005a..b74fc88e06b9ab71847bb2f17e3fb5a840209be0 100644
+--- a/apps/learning/serializers.py
++++ b/apps/learning/serializers.py
+@@ -1,122 +1,220 @@
+ # apps/learning/serializers.py
+ 
++from django.db import transaction
++from django.db.models import Max
+ from rest_framework import serializers
+-from .models import Course, Topic, Subtopic
++
+ from apps.core.services import deepseek_service
+-from django.db import transaction
++from .models import Course, Topic, Subtopic
++
+ import logging
+ 
+ logger = logging.getLogger(__name__)
+ 
++
+ class SubtopicSerializer(serializers.ModelSerializer):
+-    """
+-    Serializador para o modelo Subtopic.
+-    Reflete os campos do models.py: title, details, order, is_completed.
+-    """
++    """Serializador para o modelo Subtopic."""
++
+     class Meta:
+         model = Subtopic
+-        # Campos ajustados para corresponder ao modelo
+         fields = ['id', 'title', 'details', 'order', 'is_completed']
+         read_only_fields = ['id']
+ 
++
+ class TopicSerializer(serializers.ModelSerializer):
+-    """
+-    Serializador para o modelo Topic, incluindo seus subtópicos aninhados.
+-    """
++    """Serializador para o modelo Topic, incluindo subtópicos aninhados."""
++
+     subtopics = SubtopicSerializer(many=True, read_only=True)
+-    
++
+     class Meta:
+         model = Topic
+-        # Campos ajustados para corresponder ao modelo
+-        fields = ['id', 'title', 'slug', 'course', 'suggested_study_plan', 'order', 'created_at', 'subtopics']
++        fields = [
++            'id',
++            'title',
++            'slug',
++            'course',
++            'suggested_study_plan',
++            'order',
++            'created_at',
++            'subtopics',
++        ]
+         read_only_fields = ['id', 'slug', 'created_at', 'subtopics']
+ 
++
++class TopicWriteSerializer(serializers.ModelSerializer):
++    """Serializer para criação/edição manual de tópicos."""
++
++    class Meta:
++        model = Topic
++        fields = ['id', 'course', 'title', 'suggested_study_plan', 'order']
++        read_only_fields = ['id', 'order']
++
++    def validate_course(self, value):
++        request = self.context['request']
++        if value.user != request.user:
++            raise serializers.ValidationError(
++                "Não é permitido adicionar tópicos em cursos de outro usuário."
++            )
++        return value
++
++    def validate(self, attrs):
++        course = attrs.get('course') or getattr(self.instance, 'course', None)
++        title = attrs.get('title')
++        if course and title:
++            qs = Topic.objects.filter(course=course, title__iexact=title)
++            if self.instance:
++                qs = qs.exclude(pk=self.instance.pk)
++            if qs.exists():
++                raise serializers.ValidationError({
++                    'title': 'Já existe um tópico com este título para o curso informado.'
++                })
++        return super().validate(attrs)
++
++    def create(self, validated_data):
++        course = validated_data['course']
++        next_order = (course.topics.aggregate(max_order=Max('order'))['max_order'] or 0) + 1
++        validated_data['order'] = next_order
++        return super().create(validated_data)
++
++
++class ReorderSerializer(serializers.Serializer):
++    """Serializer utilitário para validar payloads de reordenação."""
++
++    ordered_ids = serializers.ListField(
++        child=serializers.IntegerField(),
++        allow_empty=False,
++        help_text="Lista ordenada com os IDs na nova ordem."
++    )
++
++    def validate_ordered_ids(self, value):
++        if len(value) != len(set(value)):
++            raise serializers.ValidationError("IDs duplicados não são permitidos.")
++        return value
++
++
++class CourseWriteSerializer(serializers.ModelSerializer):
++    """Serializer para criação/edição de cursos."""
++
++    class Meta:
++        model = Course
++        fields = ['id', 'title', 'description']
++        read_only_fields = ['id']
++
++    def validate_title(self, value):
++        user = self.context['request'].user
++        qs = Course.objects.filter(user=user, title__iexact=value)
++        if self.instance:
++            qs = qs.exclude(pk=self.instance.pk)
++        if qs.exists():
++            raise serializers.ValidationError('Você já possui um curso com este título.')
++        return value
++
++
+ class CourseCreationSerializer(serializers.Serializer):
+-    """
+-    Serializador específico para o fluxo de criação de Curso + Tópico + Subtópicos.
+-    Não está atrelado a um modelo, apenas define os campos de entrada da API.
+-    """
+-    course_title = serializers.CharField(max_length=200, required=True, help_text="Título da disciplina. Ex: Cálculo I")
+-    topic_title = serializers.CharField(max_length=200, required=True, help_text="Tópico principal a ser estudado. Ex: Limites e Derivadas")
+-    course_description = serializers.CharField(required=False, allow_blank=True, help_text="Descrição opcional da disciplina.")
++    """Serializador específico para o fluxo de criação de Curso + Tópico + Subtópicos."""
++
++    course_title = serializers.CharField(
++        max_length=200,
++        required=True,
++        help_text="Título da disciplina. Ex: Cálculo I"
++    )
++    topic_title = serializers.CharField(
++        max_length=200,
++        required=True,
++        help_text="Tópico principal a ser estudado. Ex: Limites e Derivadas"
++    )
++    course_description = serializers.CharField(
++        required=False,
++        allow_blank=True,
++        help_text="Descrição opcional da disciplina."
++    )
+ 
+     def create(self, validated_data):
+         course_title = validated_data["course_title"].strip()
+-        topic_title  = validated_data["topic_title"].strip()
++        topic_title = validated_data["topic_title"].strip()
+         course_description = (validated_data.get("course_description") or "").strip()
+         user = self.context["request"].user
+ 
+         # 1) Course case-insensitive (get_or_create não aceita __iexact)
+-        course = (Course.objects
+-                  .filter(user=user, title__iexact=course_title)
+-                  .first())
++        course = (
++            Course.objects
++            .filter(user=user, title__iexact=course_title)
++            .first()
++        )
+         if not course:
+             course = Course.objects.create(
+                 user=user,
+                 title=course_title,
+                 description=course_description
+             )
+ 
+         # 2) Topic case-insensitive
+-        topic = (Topic.objects
+-                 .filter(course=course, title__iexact=topic_title)
+-                 .first())
++        topic = (
++            Topic.objects
++            .filter(course=course, title__iexact=topic_title)
++            .first()
++        )
+         topic_created = False
+         if not topic:
+-            topic = Topic.objects.create(course=course, title=topic_title, order=1)
++            next_order = (course.topics.aggregate(max_order=Max('order'))['max_order'] or 0) + 1
++            topic = Topic.objects.create(course=course, title=topic_title, order=next_order)
+             topic_created = True
+ 
+         # 3) Popular com IA só quando recém-criado
+         if topic_created:
+             try:
+                 # Plano sugerido (string). Se vier fallback vazio, apenas não grava nada.
+                 plan_text = deepseek_service.sugerir_plano_de_topico(course.title, topic.title)
+                 if plan_text:
+                     topic.suggested_study_plan = plan_text
+                     topic.save(update_fields=["suggested_study_plan"])
+ 
+                 # Subtópicos sugeridos (list[str] ou [])
+                 suggested_subtopics = deepseek_service.sugerir_subtopicos(topic) or []
+ 
+                 # Normalização: remover vazios, duplicados e espaços
+                 seen = set()
+                 cleaned = []
+                 for s in suggested_subtopics:
+                     s_norm = (s or "").strip()
+                     if not s_norm:
+                         continue
+                     if s_norm.lower() in seen:
+                         continue
+                     seen.add(s_norm.lower())
+                     cleaned.append(s_norm)
+ 
+                 # Criação em lote (ordem começando em 1)
+                 if cleaned:
+                     with transaction.atomic():
+                         Subtopic.objects.bulk_create([
+                             Subtopic(topic=topic, title=title, order=idx)
+                             for idx, title in enumerate(cleaned, start=1)
+                         ])
+                 else:
+-                    logger.warning("IA não retornou subtópicos válidos para o tópico '%s'.", topic.title)
++                    logger.warning(
++                        "IA não retornou subtópicos válidos para o tópico '%s'.",
++                        topic.title
++                    )
+ 
+             except Exception as e:
+                 # Não quebra o fluxo de criação do curso/tópico
+                 logger.exception("Falha ao popular tópico com dados da IA: %s", e)
+ 
+         return topic
+ 
++
+ class CourseDetailSerializer(serializers.ModelSerializer):
+-    """
+-    Serializador para listar e detalhar Cursos, mostrando os tópicos aninhados.
+-    """
++    """Serializador para listar e detalhar Cursos, mostrando os tópicos aninhados."""
++
+     topics = TopicSerializer(many=True, read_only=True)
+ 
+     class Meta:
+         model = Course
+         fields = ['id', 'title', 'description', 'created_at', 'topics']
+ 
++
+ class CourseSerializer(serializers.ModelSerializer):
+     class Meta:
+         model = Course
+-        fields = '__all__' # ou liste os campos específicos
+\ No newline at end of file
++        fields = '__all__'
+diff --git a/apps/learning/urls.py b/apps/learning/urls.py
+index 83e6ed0086903ab1de31844899b9dee9af5c59a2..a740527eec6aa4c2bd6dbe7cef9a859ac74500cb 100644
+--- a/apps/learning/urls.py
++++ b/apps/learning/urls.py
+@@ -1,26 +1,25 @@
+ # apps/learning/urls.py
+ 
+-from django.urls import path, include
++from django.urls import include, path
+ from rest_framework.routers import DefaultRouter
++
+ from .views import (
+-    LearningCreationAPIView,
+     CourseViewSet,
++    LearningCreationAPIView,
++    SubtopicReorderAPIView,
++    SubtopicUpdateAPIView,
++    TopicReorderAPIView,
+     TopicViewSet,
+-    SubtopicUpdateAPIView
+ )
+ 
+-# O router cuida das URLs para os ViewSets (que são de leitura)
+ router = DefaultRouter()
+ router.register(r'courses', CourseViewSet, basename='course')
+ router.register(r'topics', TopicViewSet, basename='topic')
+ 
+ urlpatterns = [
+-    # Endpoint principal para criar o plano de estudos
+     path('create-study-plan/', LearningCreationAPIView.as_view(), name='create-study-plan'),
+-    
+-    # Endpoint para marcar um subtópico como concluído
+     path('subtopics/<int:pk>/', SubtopicUpdateAPIView.as_view(), name='subtopic-update'),
+-    
+-    # Inclui as URLs geradas pelo router (para listar cursos e tópicos)
++    path('courses/<int:course_pk>/reorder-topics/', TopicReorderAPIView.as_view(), name='course-reorder-topics'),
++    path('topics/<int:topic_pk>/reorder-subtopics/', SubtopicReorderAPIView.as_view(), name='topic-reorder-subtopics'),
+     path('', include(router.urls)),
+ ]
+diff --git a/apps/learning/views.py b/apps/learning/views.py
+index 815167a282bd55c895c5658f8b094aa9dd969967..81b32c4c2b45e8096b37a806069c9dc9e54f4c1c 100644
+--- a/apps/learning/views.py
++++ b/apps/learning/views.py
+@@ -1,96 +1,179 @@
+ # apps/learning/views.py
+ 
+-from rest_framework import viewsets, status, generics
+-from rest_framework.response import Response
++from django.db import OperationalError, transaction
++from django.shortcuts import get_object_or_404
++from rest_framework import generics, status, viewsets
+ from rest_framework.permissions import IsAuthenticated
+-from rest_framework import status
+-from django.db import OperationalError
++from rest_framework.response import Response
++
+ from .models import Course, Topic, Subtopic
+ from .serializers import (
+-    CourseCreationSerializer, 
+-    CourseDetailSerializer, 
+-    TopicSerializer, 
+-    SubtopicSerializer
++    CourseCreationSerializer,
++    CourseDetailSerializer,
++    CourseSerializer,
++    CourseWriteSerializer,
++    ReorderSerializer,
++    SubtopicSerializer,
++    TopicSerializer,
++    TopicWriteSerializer,
+ )
+-from .serializers import CourseSerializer
++
++
+ class LearningCreationAPIView(generics.CreateAPIView):
+-    """
+-    Endpoint único para o fluxo principal de criação.
+-    Recebe um título de disciplina e um tópico, e cria tudo:
+-    Curso -> Tópico -> Subtópicos (via IA).
+-    URL: POST /api/learning/create-study-plan/
+-    """
++    """Endpoint único para o fluxo principal de criação."""
++
+     permission_classes = [IsAuthenticated]
+     serializer_class = CourseCreationSerializer
+ 
+     def create(self, request, *args, **kwargs):
+         serializer = self.get_serializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+-        
+-        # O método .create() do serializador faz todo o trabalho pesado
+-        topic = serializer.save() 
+-        
+-        # Retorna o Tópico recém-criado (com subtópicos aninhados) como resposta
+-        response_serializer = TopicSerializer(topic)
++
++        topic = serializer.save()
++
++        response_serializer = TopicSerializer(topic, context={'request': request})
+         headers = self.get_success_headers(response_serializer.data)
+-        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
++        return Response(
++            response_serializer.data,
++            status=status.HTTP_201_CREATED,
++            headers=headers,
++        )
+ 
+ 
+-class CourseViewSet(viewsets.ReadOnlyModelViewSet):
+-    """
+-    API para listar e ver detalhes dos Cursos do usuário.
+-    Não permite criação/edição por aqui para forçar o uso do fluxo principal.
+-    - GET /api/learning/courses/ (lista todos os cursos)
+-    - GET /api/learning/courses/{id}/ (detalhes de um curso)
+-    """
+-    queryset = Course.objects.all()
+-    serializer_class = CourseDetailSerializer
++class CourseViewSet(viewsets.ModelViewSet):
++    """CRUD completo para os cursos do usuário autenticado."""
++
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+-        """Filtra os cursos para retornar apenas os do usuário logado."""
+-        return self.queryset.filter(user=self.request.user).prefetch_related('topics__subtopics')
+-
+-
+-class TopicViewSet(viewsets.ReadOnlyModelViewSet):
+-    """
+-    API para listar e ver detalhes dos Tópicos do usuário.
+-    - GET /api/learning/topics/
+-    - GET /api/learning/topics/{id}/
+-    """
+-    queryset = Topic.objects.all()
+-    serializer_class = TopicSerializer
++        return (
++            Course.objects.filter(user=self.request.user)
++            .prefetch_related('topics__subtopics')
++            .order_by('title')
++        )
++
++    def get_serializer_class(self):
++        if self.action in {'create', 'update', 'partial_update'}:
++            return CourseWriteSerializer
++        return CourseDetailSerializer
++
++    def perform_create(self, serializer):
++        serializer.save(user=self.request.user)
++
++
++class TopicViewSet(viewsets.ModelViewSet):
++    """Permite gerenciar tópicos de forma independente do fluxo principal."""
++
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+-        """Filtra os tópicos para retornar apenas os que pertencem ao usuário logado."""
+-        return self.queryset.filter(course__user=self.request.user).select_related('course').prefetch_related('subtopics')
++        return (
++            Topic.objects.filter(course__user=self.request.user)
++            .select_related('course')
++            .prefetch_related('subtopics')
++            .order_by('order', 'title')
++        )
++
++    def get_serializer_class(self):
++        if self.action in {'create', 'update', 'partial_update'}:
++            return TopicWriteSerializer
++        return TopicSerializer
++
++    def perform_create(self, serializer):
++        serializer.save()
++
++
++class TopicReorderAPIView(generics.GenericAPIView):
++    """Atualiza a ordem dos tópicos de um curso."""
++
++    permission_classes = [IsAuthenticated]
++    serializer_class = ReorderSerializer
++
++    def post(self, request, course_pk):
++        serializer = self.get_serializer(data=request.data)
++        serializer.is_valid(raise_exception=True)
++        ordered_ids = serializer.validated_data['ordered_ids']
++
++        course = get_object_or_404(Course, pk=course_pk, user=request.user)
++        current_ids = list(course.topics.values_list('id', flat=True))
++
++        if set(current_ids) != set(ordered_ids):
++            return Response(
++                {
++                    'detail': 'A lista enviada deve conter todos os tópicos atuais do curso.'
++                },
++                status=status.HTTP_400_BAD_REQUEST,
++            )
++
++        with transaction.atomic():
++            for index, topic_id in enumerate(ordered_ids, start=1):
++                Topic.objects.filter(pk=topic_id, course=course).update(order=index)
++
++        updated_topics = (
++            Topic.objects.filter(course=course)
++            .select_related('course')
++            .prefetch_related('subtopics')
++            .order_by('order', 'title')
++        )
++        data = TopicSerializer(updated_topics, many=True, context={'request': request}).data
++        return Response(data, status=status.HTTP_200_OK)
++
++
++class SubtopicReorderAPIView(generics.GenericAPIView):
++    """Atualiza a ordem dos subtópicos de um tópico."""
++
++    permission_classes = [IsAuthenticated]
++    serializer_class = ReorderSerializer
++
++    def post(self, request, topic_pk):
++        serializer = self.get_serializer(data=request.data)
++        serializer.is_valid(raise_exception=True)
++        ordered_ids = serializer.validated_data['ordered_ids']
++
++        topic = get_object_or_404(Topic, pk=topic_pk, course__user=request.user)
++        current_ids = list(topic.subtopics.values_list('id', flat=True))
++
++        if set(current_ids) != set(ordered_ids):
++            return Response(
++                {
++                    'detail': 'A lista enviada deve conter todos os subtópicos atuais do tópico.'
++                },
++                status=status.HTTP_400_BAD_REQUEST,
++            )
++
++        with transaction.atomic():
++            for index, subtopic_id in enumerate(ordered_ids, start=1):
++                Subtopic.objects.filter(pk=subtopic_id, topic=topic).update(order=index)
++
++        updated_subtopics = (
++            Subtopic.objects.filter(topic=topic)
++            .order_by('order', 'title')
++        )
++        data = SubtopicSerializer(updated_subtopics, many=True, context={'request': request}).data
++        return Response(data, status=status.HTTP_200_OK)
+ 
+ 
+ class SubtopicUpdateAPIView(generics.UpdateAPIView):
+-    """
+-    Endpoint específico para atualizar um Subtópico.
+-    Principalmente para marcar como concluído.
+-    - PATCH /api/learning/subtopics/{id}/
+-    """
++    """Endpoint específico para atualizar um Subtópico."""
++
+     queryset = Subtopic.objects.all()
+     serializer_class = SubtopicSerializer
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+-        """Garante que o usuário só pode atualizar seus próprios subtópicos."""
+         return self.queryset.filter(topic__course__user=self.request.user)
+ 
++
+ class CourseListView(generics.ListAPIView):
+     queryset = Course.objects.all()
+     serializer_class = CourseSerializer
+ 
+     def list(self, request, *args, **kwargs):
+         try:
+             response = super().list(request, *args, **kwargs)
+             return response
+-        except OperationalError as e:
++        except OperationalError:
+             return Response(
+                 {"error": "Erro ao acessar os dados"},
+                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+-            )
+\ No newline at end of file
++            )
