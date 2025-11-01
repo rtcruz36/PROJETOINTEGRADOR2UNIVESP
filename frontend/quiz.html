@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Resolver quiz</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/quiz-session.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Resolva o quiz no seu ritmo, com foco e organização</p>
+                </div>
+            </div>
+            <div class="quiz-session-nav">
+                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="quiz-session-layout">
+            <section class="panel question-panel" aria-live="polite">
+                <header class="question-panel__header">
+                    <div>
+                        <span id="question-counter" class="panel-subtitle">Carregando quiz...</span>
+                        <h2 id="quiz-title">—</h2>
+                        <p id="quiz-topic" class="panel-subtitle"></p>
+                    </div>
+                    <div class="question-panel__meta">
+                        <span id="quiz-description"></span>
+                        <span id="attempt-summary"></span>
+                    </div>
+                </header>
+
+                <article class="question-panel__body">
+                    <h3 id="question-text" class="question-text">Selecione um quiz para começar.</h3>
+                    <ul id="question-choices" class="question-choices" role="radiogroup" aria-live="polite"></ul>
+                </article>
+
+                <footer class="question-panel__footer">
+                    <div class="question-actions">
+                        <button
+                            id="mark-review"
+                            class="ghost-button ghost-button--small"
+                            type="button"
+                            aria-pressed="false"
+                        >
+                            Marcar para revisão
+                        </button>
+                        <p id="question-feedback" class="form-feedback" role="status"></p>
+                    </div>
+                    <div class="question-navigation">
+                        <button id="prev-question" class="ghost-button ghost-button--small" type="button">Anterior</button>
+                        <button id="next-question" class="ghost-button ghost-button--small" type="button">Próxima</button>
+                        <button id="submit-quiz" class="primary-button" type="button">Enviar respostas</button>
+                    </div>
+                </footer>
+            </section>
+
+            <div class="quiz-session-side">
+                <section class="panel progress-panel" aria-label="Progresso das questões">
+                    <header>
+                        <h2>Progresso do quiz</h2>
+                        <p id="progress-summary" class="panel-subtitle"></p>
+                    </header>
+                    <ul class="progress-legend">
+                        <li><span class="legend-indicator legend-indicator--unanswered"></span>Não respondida</li>
+                        <li><span class="legend-indicator legend-indicator--answered"></span>Respondida</li>
+                        <li><span class="legend-indicator legend-indicator--review"></span>Marcada para revisão</li>
+                    </ul>
+                    <div id="question-progress" class="question-progress" role="list"></div>
+                </section>
+
+                <section class="panel timer-panel" aria-label="Timer do quiz">
+                    <header class="timer-header">
+                        <div>
+                            <h2>Timer opcional</h2>
+                            <p class="panel-subtitle">Use-o se quiser controlar o tempo de resolução</p>
+                        </div>
+                        <label class="timer-toggle">
+                            <input id="timer-enabled" type="checkbox" checked />
+                            <span>Ativar</span>
+                        </label>
+                    </header>
+                    <p id="timer-status" class="timer-status">Pronto para iniciar</p>
+                    <div class="timer-display" role="timer" aria-live="assertive" aria-atomic="true">
+                        <span id="timer-output">15:00</span>
+                    </div>
+                    <div class="timer-actions">
+                        <button id="timer-start" class="primary-button primary-button--small" type="button">Iniciar</button>
+                        <button id="timer-pause" class="ghost-button ghost-button--small" type="button">Pausar</button>
+                        <button id="timer-reset" class="ghost-button ghost-button--small" type="button">Reiniciar</button>
+                    </div>
+                    <label class="timer-duration" for="timer-duration">
+                        <span>Duração (min)</span>
+                        <input id="timer-duration" type="number" min="1" max="180" value="15" />
+                    </label>
+                </section>
+
+                <section id="results-panel" class="panel results-panel" aria-live="polite" hidden>
+                    <header>
+                        <h2>Resultado da tentativa</h2>
+                        <p class="panel-subtitle">Resumo da última submissão</p>
+                    </header>
+                    <div class="results-summary">
+                        <p><strong>Pontuação:</strong> <span id="result-score">--</span></p>
+                        <p><strong>Acertos:</strong> <span id="result-correct">--</span></p>
+                        <p><strong>Erros:</strong> <span id="result-incorrect">--</span></p>
+                        <p><strong>Data:</strong> <span id="result-date">--</span></p>
+                    </div>
+                    <details class="results-details">
+                        <summary>Ver respostas</summary>
+                        <ul id="results-list" class="results-list"></ul>
+                    </details>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para resolver seus quizzes.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="••••••••"
+            />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <template id="progress-button-template">
+        <button type="button" class="progress-button" data-question-index="0"></button>
+    </template>
+
+    <template id="result-item-template">
+        <li class="results-item">
+            <h3 class="results-item__question"></h3>
+            <p><strong>Sua resposta:</strong> <span class="results-item__answer"></span></p>
+            <p><strong>Resultado:</strong> <span class="results-item__status"></span></p>
+        </li>
+    </template>
+
+    <script src="js/quiz-session.js" type="module"></script>
+</body>
+</html>

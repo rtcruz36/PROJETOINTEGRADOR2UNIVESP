@@ -421,6 +421,14 @@ function renderQuizList(quizzes) {
             topicLink.href = `study.html?topicId=${encodeURIComponent(quiz.topic)}`;
             topicLink.textContent = 'Ver tópico';
 
+            const startLink = card.querySelector('[data-start-link]');
+            if (startLink) {
+                const label = startActionLabel(quiz.status);
+                startLink.href = `quiz.html?quizId=${encodeURIComponent(quiz.id)}`;
+                startLink.textContent = label;
+                startLink.setAttribute('aria-label', `${label} - ${quiz.title}`);
+            }
+
             list.append(card);
         });
 
@@ -438,6 +446,17 @@ function statusLabel(status) {
             return 'Concluído';
         default:
             return status;
+    }
+}
+
+function startActionLabel(status) {
+    switch (status) {
+        case 'COMPLETED':
+            return 'Refazer quiz';
+        case 'IN_PROGRESS':
+            return 'Continuar quiz';
+        default:
+            return 'Iniciar quiz';
     }
 }
 

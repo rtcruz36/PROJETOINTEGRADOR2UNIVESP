@@ -160,6 +160,18 @@
     color: var(--muted-foreground);
 }
 
+.quiz-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.quiz-card__actions .primary-button {
+    text-decoration: none;
+}
+
 .modal {
     position: fixed;
     inset: 0;
