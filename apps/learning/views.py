@@ -14,6 +14,7 @@ from .serializers import (
     CourseWriteSerializer,
     ReorderSerializer,
     SubtopicSerializer,
+    SubtopicWriteSerializer,
     TopicSerializer,
     TopicWriteSerializer,
 )
@@ -81,6 +82,24 @@ class TopicViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
+
+
+class SubtopicViewSet(viewsets.ModelViewSet):
+    """Permite gerenciar subtópicos de forma independente."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Subtopic.objects.filter(topic__course__user=self.request.user)
+            .select_related('topic', 'topic__course')
+            .order_by('order', 'title')
+        )
+
+    def get_serializer_class(self):
+        if self.action in {'create', 'update', 'partial_update'}:
+            return SubtopicWriteSerializer
+        return SubtopicSerializer
 
 
 class TopicReorderAPIView(generics.GenericAPIView):
@@ -157,7 +176,7 @@ class SubtopicUpdateAPIView(generics.UpdateAPIView):
     """Endpoint específico para atualizar um Subtópico."""
 
     queryset = Subtopic.objects.all()
-    serializer_class = SubtopicSerializer
+    serializer_class = SubtopicWriteSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):

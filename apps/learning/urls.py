@@ -8,6 +8,7 @@ from .views import (
     LearningCreationAPIView,
     SubtopicReorderAPIView,
     SubtopicUpdateAPIView,
+    SubtopicViewSet,
     TopicReorderAPIView,
     TopicViewSet,
 )
@@ -15,6 +16,7 @@ from .views import (
 router = DefaultRouter()
 router.register(r'courses', CourseViewSet, basename='course')
 router.register(r'topics', TopicViewSet, basename='topic')
+router.register(r'subtopics', SubtopicViewSet, basename='subtopic')
 
 urlpatterns = [
     path('create-study-plan/', LearningCreationAPIView.as_view(), name='create-study-plan'),

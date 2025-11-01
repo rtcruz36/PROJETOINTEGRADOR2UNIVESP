@@ -15,10 +15,63 @@ logger = logging.getLogger(__name__)
 class SubtopicSerializer(serializers.ModelSerializer):
     """Serializador para o modelo Subtopic."""
 
+    topic = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Subtopic
-        fields = ['id', 'title', 'details', 'order', 'is_completed']
-        read_only_fields = ['id']
+        fields = ['id', 'topic', 'title', 'details', 'order', 'is_completed']
+        read_only_fields = ['id', 'topic', 'order']
+
+
+class SubtopicWriteSerializer(serializers.ModelSerializer):
+    """Serializer para criação e edição manual de Subtópicos."""
+
+    topic = serializers.PrimaryKeyRelatedField(
+        queryset=Topic.objects.all(),
+        write_only=True,
+        required=False,
+        help_text="ID do tópico ao qual o subtópico pertence.",
+    )
+
+    class Meta:
+        model = Subtopic
+        fields = ['id', 'topic', 'title', 'details', 'order', 'is_completed']
+        read_only_fields = ['id', 'order']
+
+    def validate_topic(self, value):
+        request = self.context['request']
+        if value.course.user != request.user:
+            raise serializers.ValidationError(
+                "Não é permitido adicionar subtópicos em tópicos de outro usuário."
+            )
+        return value
+
+    def validate(self, attrs):
+        topic = attrs.get('topic') or getattr(self.instance, 'topic', None)
+        title = attrs.get('title')
+        if topic and title:
+            qs = Subtopic.objects.filter(topic=topic, title__iexact=title)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'title': 'Já existe um subtópico com este título para o tópico informado.'
+                })
+        return super().validate(attrs)
+
+    def create(self, validated_data):
+        topic = validated_data.get('topic')
+        if not topic:
+            raise serializers.ValidationError({
+                'topic': 'Este campo é obrigatório.'
+            })
+        next_order = (topic.subtopics.aggregate(max_order=Max('order'))['max_order'] or 0) + 1
+        validated_data['order'] = next_order
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop('topic', None)
+        return super().update(instance, validated_data)
 
 
 class TopicSerializer(serializers.ModelSerializer):

@@ -1,0 +1,475 @@
+diff --git a/apps/learning/serializers.py b/apps/learning/serializers.py
+index b74fc88e06b9ab71847bb2f17e3fb5a840209be0..892484c324e822196a7a8e9febceb32529b831d6 100644
+--- a/apps/learning/serializers.py
++++ b/apps/learning/serializers.py
+@@ -1,46 +1,99 @@
+ # apps/learning/serializers.py
+ 
+ from django.db import transaction
+ from django.db.models import Max
+ from rest_framework import serializers
+ 
+ from apps.core.services import deepseek_service
+ from .models import Course, Topic, Subtopic
+ 
+ import logging
+ 
+ logger = logging.getLogger(__name__)
+ 
+ 
+ class SubtopicSerializer(serializers.ModelSerializer):
+     """Serializador para o modelo Subtopic."""
+ 
++    topic = serializers.PrimaryKeyRelatedField(read_only=True)
++
+     class Meta:
+         model = Subtopic
+-        fields = ['id', 'title', 'details', 'order', 'is_completed']
+-        read_only_fields = ['id']
++        fields = ['id', 'topic', 'title', 'details', 'order', 'is_completed']
++        read_only_fields = ['id', 'topic', 'order']
++
++
++class SubtopicWriteSerializer(serializers.ModelSerializer):
++    """Serializer para criação e edição manual de Subtópicos."""
++
++    topic = serializers.PrimaryKeyRelatedField(
++        queryset=Topic.objects.all(),
++        write_only=True,
++        required=False,
++        help_text="ID do tópico ao qual o subtópico pertence.",
++    )
++
++    class Meta:
++        model = Subtopic
++        fields = ['id', 'topic', 'title', 'details', 'order', 'is_completed']
++        read_only_fields = ['id', 'order']
++
++    def validate_topic(self, value):
++        request = self.context['request']
++        if value.course.user != request.user:
++            raise serializers.ValidationError(
++                "Não é permitido adicionar subtópicos em tópicos de outro usuário."
++            )
++        return value
++
++    def validate(self, attrs):
++        topic = attrs.get('topic') or getattr(self.instance, 'topic', None)
++        title = attrs.get('title')
++        if topic and title:
++            qs = Subtopic.objects.filter(topic=topic, title__iexact=title)
++            if self.instance:
++                qs = qs.exclude(pk=self.instance.pk)
++            if qs.exists():
++                raise serializers.ValidationError({
++                    'title': 'Já existe um subtópico com este título para o tópico informado.'
++                })
++        return super().validate(attrs)
++
++    def create(self, validated_data):
++        topic = validated_data.get('topic')
++        if not topic:
++            raise serializers.ValidationError({
++                'topic': 'Este campo é obrigatório.'
++            })
++        next_order = (topic.subtopics.aggregate(max_order=Max('order'))['max_order'] or 0) + 1
++        validated_data['order'] = next_order
++        return super().create(validated_data)
++
++    def update(self, instance, validated_data):
++        validated_data.pop('topic', None)
++        return super().update(instance, validated_data)
+ 
+ 
+ class TopicSerializer(serializers.ModelSerializer):
+     """Serializador para o modelo Topic, incluindo subtópicos aninhados."""
+ 
+     subtopics = SubtopicSerializer(many=True, read_only=True)
+ 
+     class Meta:
+         model = Topic
+         fields = [
+             'id',
+             'title',
+             'slug',
+             'course',
+             'suggested_study_plan',
+             'order',
+             'created_at',
+             'subtopics',
+         ]
+         read_only_fields = ['id', 'slug', 'created_at', 'subtopics']
+ 
+ 
+ class TopicWriteSerializer(serializers.ModelSerializer):
+     """Serializer para criação/edição manual de tópicos."""
+ 
+diff --git a/apps/learning/tests.py b/apps/learning/tests.py
+index 6abc1d920c91f7f72cc32ed0a19f5f272e2e5105..e291f2bc93bcd819735e74ae63a3783c95be7c56 100644
+--- a/apps/learning/tests.py
++++ b/apps/learning/tests.py
+@@ -1,36 +1,36 @@
+ # apps/learning/tests.py
+ 
+ from django.urls import reverse
+ from rest_framework import status
+ from unittest.mock import patch # Ferramenta para "mockar"
+ from apps.accounts.models import User
+ from apps.learning.models import Course, Topic, Subtopic
+ from django.test import TestCase
+ from rest_framework.test import APITestCase, APIRequestFactory
+ from django.contrib.auth import get_user_model
+-from apps.learning.views import CourseViewSet, TopicViewSet, SubtopicUpdateAPIView
++from apps.learning.views import CourseViewSet, TopicViewSet, SubtopicUpdateAPIView, SubtopicViewSet
+ 
+ User = get_user_model()
+ 
+ 
+ # ====== MODELS: __str__ e get_absolute_url ======
+ 
+ class LearningModelsExtraTests(TestCase):
+     def setUp(self):
+         self.user = User.objects.create_user("m1", email="m1@x.com", password="p")
+         self.course = Course.objects.create(user=self.user, title="Cálculo I")
+         self.topic = Topic.objects.create(course=self.course, title="Derivadas", slug="derivadas")
+         self.subtopic = Subtopic.objects.create(topic=self.topic, title="Regras de Derivação", order=1)
+ 
+     def test_course_str(self):
+         self.assertEqual(str(self.course), "Cálculo I")
+ 
+     def test_topic_str(self):
+         self.assertEqual(str(self.topic), "Cálculo I - Derivadas")
+ 
+     def test_subtopic_str(self):
+         self.assertEqual(str(self.subtopic), "Regras de Derivação")
+ 
+     @patch("apps.learning.models.reverse", return_value="/topics/derivadas/")
+     def test_topic_get_absolute_url(self, mock_reverse):
+         url = self.topic.get_absolute_url()
+@@ -121,70 +121,131 @@ class LearningViewsetsQuerysetEdges(TestCase):
+     def test_topic_viewset_get_queryset_filtra_por_user(self):
+         request = self.factory.get("/fake")
+         request.user = self.user
+         view = TopicViewSet()
+         view.request = request
+         qs = view.get_queryset()
+         self.assertTrue(all(t.course.user_id == self.user.id for t in qs))
+         self.assertIn(self.topic_u, qs)
+         self.assertNotIn(self.topic_o, qs)
+ 
+     def test_subtopic_update_apiview_get_queryset_filtra_por_user(self):
+         """
+         Tenta acessar um Subtopic de outro usuário via queryset filtrado → não encontra (404 no fluxo real).
+         Aqui cobrimos a linha do retorno filtrado.
+         """
+         request = self.factory.get("/fake")
+         request.user = self.user
+         view = SubtopicUpdateAPIView()
+         view.request = request
+         qs = view.get_queryset()
+         # Apenas subtopics do usuário self.user
+         self.assertTrue(all(s.topic.course.user_id == self.user.id for s in qs))
+         # o subtopic do outro usuário não está no queryset
+         self.assertFalse(qs.filter(pk__in=Subtopic.objects.filter(topic=self.topic_o).values_list("pk", flat=True)).exists())
+ 
++    def test_subtopic_viewset_get_queryset_filtra_por_user(self):
++        request = self.factory.get("/fake")
++        request.user = self.user
++        view = SubtopicViewSet()
++        view.request = request
++        qs = view.get_queryset()
++        self.assertTrue(all(s.topic.course.user_id == self.user.id for s in qs))
++        self.assertTrue(qs.filter(topic=self.topic_u).exists())
++        self.assertFalse(qs.filter(topic=self.topic_o).exists())
++
+ 
+ class LearningAPITests(APITestCase):
+ 
+     def setUp(self):
+         """Configuração inicial para todos os testes nesta classe."""
+         self.user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
+         self.client.force_authenticate(user=self.user) # Força a autenticação para não precisar fazer login sempre
+         self.url = reverse('create-study-plan')
+ 
+     # O decorador @patch substitui a função do deepseek_service durante o teste
+     @patch('apps.core.services.deepseek_service.sugerir_subtopicos')
+     @patch('apps.core.services.deepseek_service.sugerir_plano_de_topico')
+     def test_create_study_plan_flow(self, mock_sugerir_plano, mock_sugerir_subtopicos):
+         """
+         Testa o endpoint principal de criação, garantindo que a IA é chamada
+         e os objetos são criados corretamente.
+         """
+         # Preparação: Definimos o que as funções "mockadas" devem retornar
+         mock_sugerir_plano.return_value = "Este é um plano de estudos detalhado."
+         mock_sugerir_subtopicos.return_value = ["Subtópico 1", "Subtópico 2", "Subtópico 3"]
+ 
+         data = {
+             "course_title": "Física Quântica",
+             "topic_title": "O Princípio da Incerteza",
+             "course_description": "Uma introdução."
+         }
+ 
+         # Ação
+         response = self.client.post(self.url, data, format='json')
+ 
+         # Verificação
+         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+         
+         # Verifica se os objetos foram criados no banco
+         self.assertTrue(Course.objects.filter(title="Física Quântica").exists())
+         self.assertTrue(Topic.objects.filter(title="O Princípio da Incerteza").exists())
+         self.assertEqual(Subtopic.objects.count(), 3)
+         
+         # Verifica se as funções da IA foram chamadas
+         mock_sugerir_plano.assert_called_once()
+         mock_sugerir_subtopicos.assert_called_once()
+ 
+         # Verifica o conteúdo da resposta
+         self.assertEqual(response.data['title'], "O Princípio da Incerteza")
+         self.assertEqual(len(response.data['subtopics']), 3)
++
++
++class SubtopicViewSetAPITests(APITestCase):
++
++    def setUp(self):
++        self.user = User.objects.create_user(username='owner', email='owner@example.com', password='password')
++        self.other_user = User.objects.create_user(username='other', email='other@example.com', password='password')
++
++        self.course = Course.objects.create(user=self.user, title='Curso Principal')
++        self.topic = Topic.objects.create(course=self.course, title='Tópico 1', slug='topico-1')
++        self.initial_subtopic = Subtopic.objects.create(topic=self.topic, title='Sub 1', order=1)
++
++        other_course = Course.objects.create(user=self.other_user, title='Curso Outro Usuário')
++        other_topic = Topic.objects.create(course=other_course, title='Outro Tópico', slug='outro-topico')
++        self.foreign_subtopic = Subtopic.objects.create(topic=other_topic, title='Outro Sub', order=1)
++
++        self.client.force_authenticate(user=self.user)
++        self.list_url = reverse('subtopic-list')
++
++    def test_list_subtopics_retorna_apenas_do_usuario(self):
++        response = self.client.get(self.list_url)
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        returned_ids = {item['id'] for item in response.data}
++        self.assertIn(self.initial_subtopic.id, returned_ids)
++        self.assertNotIn(self.foreign_subtopic.id, returned_ids)
++
++    def test_create_subtopic_define_ordem_sequencial(self):
++        payload = {
++            'topic': self.topic.id,
++            'title': 'Sub 2',
++            'details': 'Detalhes',
++        }
++        response = self.client.post(self.list_url, payload, format='json')
++        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
++
++        created = Subtopic.objects.get(title='Sub 2')
++        self.assertEqual(created.topic, self.topic)
++        self.assertEqual(created.order, 2)
++
++    def test_create_subtopic_em_topico_de_outro_usuario_retorna_erro(self):
++        payload = {
++            'topic': self.foreign_subtopic.topic.id,
++            'title': 'Sub inválido',
++        }
++        response = self.client.post(self.list_url, payload, format='json')
++        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
++
++    def test_delete_subtopic_de_outro_usuario_retorna_404(self):
++        url = reverse('subtopic-detail', args=[self.foreign_subtopic.id])
++        response = self.client.delete(url)
++        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+diff --git a/apps/learning/urls.py b/apps/learning/urls.py
+index a740527eec6aa4c2bd6dbe7cef9a859ac74500cb..f5a2fb13291e36f7da8d13c520109f9caa3e0062 100644
+--- a/apps/learning/urls.py
++++ b/apps/learning/urls.py
+@@ -1,25 +1,27 @@
+ # apps/learning/urls.py
+ 
+ from django.urls import include, path
+ from rest_framework.routers import DefaultRouter
+ 
+ from .views import (
+     CourseViewSet,
+     LearningCreationAPIView,
+     SubtopicReorderAPIView,
+     SubtopicUpdateAPIView,
++    SubtopicViewSet,
+     TopicReorderAPIView,
+     TopicViewSet,
+ )
+ 
+ router = DefaultRouter()
+ router.register(r'courses', CourseViewSet, basename='course')
+ router.register(r'topics', TopicViewSet, basename='topic')
++router.register(r'subtopics', SubtopicViewSet, basename='subtopic')
+ 
+ urlpatterns = [
+     path('create-study-plan/', LearningCreationAPIView.as_view(), name='create-study-plan'),
+     path('subtopics/<int:pk>/', SubtopicUpdateAPIView.as_view(), name='subtopic-update'),
+     path('courses/<int:course_pk>/reorder-topics/', TopicReorderAPIView.as_view(), name='course-reorder-topics'),
+     path('topics/<int:topic_pk>/reorder-subtopics/', SubtopicReorderAPIView.as_view(), name='topic-reorder-subtopics'),
+     path('', include(router.urls)),
+ ]
+diff --git a/apps/learning/views.py b/apps/learning/views.py
+index 81b32c4c2b45e8096b37a806069c9dc9e54f4c1c..41f3c6a22cbca6316b330a2367d447c98204ffdb 100644
+--- a/apps/learning/views.py
++++ b/apps/learning/views.py
+@@ -1,41 +1,42 @@
+ # apps/learning/views.py
+ 
+ from django.db import OperationalError, transaction
+ from django.shortcuts import get_object_or_404
+ from rest_framework import generics, status, viewsets
+ from rest_framework.permissions import IsAuthenticated
+ from rest_framework.response import Response
+ 
+ from .models import Course, Topic, Subtopic
+ from .serializers import (
+     CourseCreationSerializer,
+     CourseDetailSerializer,
+     CourseSerializer,
+     CourseWriteSerializer,
+     ReorderSerializer,
+     SubtopicSerializer,
++    SubtopicWriteSerializer,
+     TopicSerializer,
+     TopicWriteSerializer,
+ )
+ 
+ 
+ class LearningCreationAPIView(generics.CreateAPIView):
+     """Endpoint único para o fluxo principal de criação."""
+ 
+     permission_classes = [IsAuthenticated]
+     serializer_class = CourseCreationSerializer
+ 
+     def create(self, request, *args, **kwargs):
+         serializer = self.get_serializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+ 
+         topic = serializer.save()
+ 
+         response_serializer = TopicSerializer(topic, context={'request': request})
+         headers = self.get_success_headers(response_serializer.data)
+         return Response(
+             response_serializer.data,
+             status=status.HTTP_201_CREATED,
+             headers=headers,
+         )
+ 
+@@ -61,50 +62,68 @@ class CourseViewSet(viewsets.ModelViewSet):
+         serializer.save(user=self.request.user)
+ 
+ 
+ class TopicViewSet(viewsets.ModelViewSet):
+     """Permite gerenciar tópicos de forma independente do fluxo principal."""
+ 
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+         return (
+             Topic.objects.filter(course__user=self.request.user)
+             .select_related('course')
+             .prefetch_related('subtopics')
+             .order_by('order', 'title')
+         )
+ 
+     def get_serializer_class(self):
+         if self.action in {'create', 'update', 'partial_update'}:
+             return TopicWriteSerializer
+         return TopicSerializer
+ 
+     def perform_create(self, serializer):
+         serializer.save()
+ 
+ 
++class SubtopicViewSet(viewsets.ModelViewSet):
++    """Permite gerenciar subtópicos de forma independente."""
++
++    permission_classes = [IsAuthenticated]
++
++    def get_queryset(self):
++        return (
++            Subtopic.objects.filter(topic__course__user=self.request.user)
++            .select_related('topic', 'topic__course')
++            .order_by('order', 'title')
++        )
++
++    def get_serializer_class(self):
++        if self.action in {'create', 'update', 'partial_update'}:
++            return SubtopicWriteSerializer
++        return SubtopicSerializer
++
++
+ class TopicReorderAPIView(generics.GenericAPIView):
+     """Atualiza a ordem dos tópicos de um curso."""
+ 
+     permission_classes = [IsAuthenticated]
+     serializer_class = ReorderSerializer
+ 
+     def post(self, request, course_pk):
+         serializer = self.get_serializer(data=request.data)
+         serializer.is_valid(raise_exception=True)
+         ordered_ids = serializer.validated_data['ordered_ids']
+ 
+         course = get_object_or_404(Course, pk=course_pk, user=request.user)
+         current_ids = list(course.topics.values_list('id', flat=True))
+ 
+         if set(current_ids) != set(ordered_ids):
+             return Response(
+                 {
+                     'detail': 'A lista enviada deve conter todos os tópicos atuais do curso.'
+                 },
+                 status=status.HTTP_400_BAD_REQUEST,
+             )
+ 
+         with transaction.atomic():
+             for index, topic_id in enumerate(ordered_ids, start=1):
+                 Topic.objects.filter(pk=topic_id, course=course).update(order=index)
+@@ -135,45 +154,45 @@ class SubtopicReorderAPIView(generics.GenericAPIView):
+ 
+         if set(current_ids) != set(ordered_ids):
+             return Response(
+                 {
+                     'detail': 'A lista enviada deve conter todos os subtópicos atuais do tópico.'
+                 },
+                 status=status.HTTP_400_BAD_REQUEST,
+             )
+ 
+         with transaction.atomic():
+             for index, subtopic_id in enumerate(ordered_ids, start=1):
+                 Subtopic.objects.filter(pk=subtopic_id, topic=topic).update(order=index)
+ 
+         updated_subtopics = (
+             Subtopic.objects.filter(topic=topic)
+             .order_by('order', 'title')
+         )
+         data = SubtopicSerializer(updated_subtopics, many=True, context={'request': request}).data
+         return Response(data, status=status.HTTP_200_OK)
+ 
+ 
+ class SubtopicUpdateAPIView(generics.UpdateAPIView):
+     """Endpoint específico para atualizar um Subtópico."""
+ 
+     queryset = Subtopic.objects.all()
+-    serializer_class = SubtopicSerializer
++    serializer_class = SubtopicWriteSerializer
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+         return self.queryset.filter(topic__course__user=self.request.user)
+ 
+ 
+ class CourseListView(generics.ListAPIView):
+     queryset = Course.objects.all()
+     serializer_class = CourseSerializer
+ 
+     def list(self, request, *args, **kwargs):
+         try:
+             response = super().list(request, *args, **kwargs)
+             return response
+         except OperationalError:
+             return Response(
+                 {"error": "Erro ao acessar os dados"},
+                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+             )

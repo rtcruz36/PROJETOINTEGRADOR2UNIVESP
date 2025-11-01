@@ -8,7 +8,7 @@ from apps.learning.models import Course, Topic, Subtopic
 from django.test import TestCase
 from rest_framework.test import APITestCase, APIRequestFactory
 from django.contrib.auth import get_user_model
-from apps.learning.views import CourseViewSet, TopicViewSet, SubtopicUpdateAPIView
+from apps.learning.views import CourseViewSet, TopicViewSet, SubtopicUpdateAPIView, SubtopicViewSet
 
 User = get_user_model()
 
@@ -143,6 +143,16 @@ class LearningViewsetsQuerysetEdges(TestCase):
         # o subtopic do outro usuário não está no queryset
         self.assertFalse(qs.filter(pk__in=Subtopic.objects.filter(topic=self.topic_o).values_list("pk", flat=True)).exists())
 
+    def test_subtopic_viewset_get_queryset_filtra_por_user(self):
+        request = self.factory.get("/fake")
+        request.user = self.user
+        view = SubtopicViewSet()
+        view.request = request
+        qs = view.get_queryset()
+        self.assertTrue(all(s.topic.course.user_id == self.user.id for s in qs))
+        self.assertTrue(qs.filter(topic=self.topic_u).exists())
+        self.assertFalse(qs.filter(topic=self.topic_o).exists())
+
 
 class LearningAPITests(APITestCase):
 
@@ -188,3 +198,54 @@ class LearningAPITests(APITestCase):
         # Verifica o conteúdo da resposta
         self.assertEqual(response.data['title'], "O Princípio da Incerteza")
         self.assertEqual(len(response.data['subtopics']), 3)
+
+
+class SubtopicViewSetAPITests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='owner', email='owner@example.com', password='password')
+        self.other_user = User.objects.create_user(username='other', email='other@example.com', password='password')
+
+        self.course = Course.objects.create(user=self.user, title='Curso Principal')
+        self.topic = Topic.objects.create(course=self.course, title='Tópico 1', slug='topico-1')
+        self.initial_subtopic = Subtopic.objects.create(topic=self.topic, title='Sub 1', order=1)
+
+        other_course = Course.objects.create(user=self.other_user, title='Curso Outro Usuário')
+        other_topic = Topic.objects.create(course=other_course, title='Outro Tópico', slug='outro-topico')
+        self.foreign_subtopic = Subtopic.objects.create(topic=other_topic, title='Outro Sub', order=1)
+
+        self.client.force_authenticate(user=self.user)
+        self.list_url = reverse('subtopic-list')
+
+    def test_list_subtopics_retorna_apenas_do_usuario(self):
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {item['id'] for item in response.data}
+        self.assertIn(self.initial_subtopic.id, returned_ids)
+        self.assertNotIn(self.foreign_subtopic.id, returned_ids)
+
+    def test_create_subtopic_define_ordem_sequencial(self):
+        payload = {
+            'topic': self.topic.id,
+            'title': 'Sub 2',
+            'details': 'Detalhes',
+        }
+        response = self.client.post(self.list_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        created = Subtopic.objects.get(title='Sub 2')
+        self.assertEqual(created.topic, self.topic)
+        self.assertEqual(created.order, 2)
+
+    def test_create_subtopic_em_topico_de_outro_usuario_retorna_erro(self):
+        payload = {
+            'topic': self.foreign_subtopic.topic.id,
+            'title': 'Sub inválido',
+        }
+        response = self.client.post(self.list_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_delete_subtopic_de_outro_usuario_retorna_404(self):
+        url = reverse('subtopic-detail', args=[self.foreign_subtopic.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
