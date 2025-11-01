@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - StudyBot</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/studybot.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Converse com o StudyBot usando o contexto certo</p>
+                </div>
+            </div>
+            <div class="user-actions">
+                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
+                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="studybot-layout">
+            <section class="panel context-panel" aria-label="Seleção de contexto do StudyBot">
+                <header>
+                    <span class="panel-subtitle">Contexto do estudo</span>
+                    <h2>Escolha um tópico para a conversa</h2>
+                </header>
+
+                <div class="context-selector">
+                    <label class="focus-field" for="topic-selector">
+                        <span>Tópico atual</span>
+                        <select id="topic-selector" class="focus-select" aria-label="Selecionar tópico para o StudyBot"></select>
+                    </label>
+                    <p id="topic-feedback" class="form-feedback" role="status"></p>
+                </div>
+
+                <article class="context-summary" aria-live="polite">
+                    <h3 id="context-title">Nenhum tópico selecionado</h3>
+                    <p id="context-course" class="context-course"></p>
+                    <p id="context-subtopics" class="context-subtopics"></p>
+                </article>
+
+                <section class="context-plan" aria-label="Plano sugerido para o tópico">
+                    <h3>Plano sugerido</h3>
+                    <p id="context-plan" class="context-plan__text"></p>
+                </section>
+            </section>
+
+            <section class="panel chat-panel" aria-label="Chat com o StudyBot">
+                <header>
+                    <span class="panel-subtitle">StudyBot (Chat)</span>
+                    <h2>Explore dúvidas em tempo real</h2>
+                </header>
+
+                <div
+                    id="quick-suggestions"
+                    class="quick-suggestions"
+                    role="group"
+                    aria-label="Sugestões rápidas para conversar com o StudyBot"
+                ></div>
+
+                <div id="chat-messages" class="chat-messages" aria-live="polite" aria-busy="false"></div>
+
+                <form id="chat-form" class="chat-form">
+                    <label class="focus-field" for="chat-input">
+                        <span>Sua pergunta</span>
+                        <textarea
+                            id="chat-input"
+                            rows="3"
+                            placeholder="Digite uma dúvida ou peça uma explicação"
+                            required
+                        ></textarea>
+                    </label>
+                    <div class="chat-actions">
+                        <span id="chat-status" class="form-feedback" role="status"></span>
+                        <button class="primary-button" type="submit">Enviar</button>
+                    </div>
+                    <p class="chat-hint">Use Ctrl + Enter para enviar rapidamente. Utilize ↑ e ↓ para navegar pelo histórico.</p>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para conversar com o StudyBot.</p>
+            <label for="email">E-mail</label>
+            <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autocomplete="email"
+                placeholder="seu-email@exemplo.com"
+            />
+            <label for="password">Senha</label>
+            <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="••••••••"
+            />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <template id="chat-message-template">
+        <article class="chat-message">
+            <header class="chat-message-header">
+                <span class="chat-author"></span>
+                <time class="chat-timestamp"></time>
+            </header>
+            <p class="chat-content"></p>
+        </article>
+    </template>
+
+    <script src="js/studybot.js" type="module"></script>
+</body>
+</html>

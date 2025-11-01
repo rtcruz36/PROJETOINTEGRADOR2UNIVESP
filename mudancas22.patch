@@ -1,0 +1,1535 @@
+diff --git a/frontend/analytics.html b/frontend/analytics.html
+index 686f1a516dd36164b10ace94040d7cbe777222f7..f365a0eb4b45f650cac5ebc84893c615a974d353 100644
+--- a/frontend/analytics.html
++++ b/frontend/analytics.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Analytics</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/analytics.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Insights completos sobre seu desempenho e hábitos</p>
+                 </div>
+             </div>
+             <div class="analytics-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small is-active" href="analytics.html" aria-current="page">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="analytics-main">
+             <section class="analytics-summary" aria-label="Resumo rápido">
+                 <article class="analytics-card">
+                     <h2>Correlação estudo x notas</h2>
+                     <p id="correlation-summary" class="analytics-card__summary"></p>
+                     <p id="correlation-interpretation" class="analytics-card__interpretation"></p>
+                 </article>
+                 <article class="analytics-card">
+                     <h2>Evolução das notas</h2>
+                     <p id="progress-summary" class="analytics-card__summary"></p>
+                 </article>
+                 <article class="analytics-card">
+                     <h2>Hábitos de estudo</h2>
+                     <p id="engagement-summary" class="analytics-card__summary"></p>
+                 </article>
+             </section>
+diff --git a/frontend/index.html b/frontend/index.html
+index 0c9268cba36e8900ca71e4ed18c57a8612e41807..cc8211998cb3fd8d8d068dd2aef2b6a286bb56f6 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -4,50 +4,51 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Dashboard</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Resumo inteligente do seu progresso acadêmico</p>
+                 </div>
+             </div>
+             <div class="user-actions">
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="content-area">
+             <section class="summary-cards" aria-label="Resumo do aprendizado">
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">📚</span>
+                     <div>
+                         <h2>Total de Cursos</h2>
+                         <p id="courses-count" class="summary-value">--</p>
+                     </div>
+                 </article>
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">🧠</span>
+                     <div>
+                         <h2>Tópicos em andamento</h2>
+                         <p id="topics-in-progress" class="summary-value">--</p>
+                     </div>
+                 </article>
+                 <article class="summary-card">
+diff --git a/frontend/js/studybot.js b/frontend/js/studybot.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..9ca881bd8c08dac1e78a1f65db963a7e30d61890
+--- /dev/null
++++ b/frontend/js/studybot.js
+@@ -0,0 +1,640 @@
++const API_BASE_URL = (document.body.dataset.apiBase || 'http://localhost:8000/api').replace(/\/$/, '');
++const STORAGE_KEY = 'pi2-dashboard-auth';
++
++const selectors = {
++    loginOverlay: document.getElementById('login-overlay'),
++    loginForm: document.getElementById('login-form'),
++    loginError: document.getElementById('login-error'),
++    logoutButton: document.getElementById('logout-button'),
++    greeting: document.getElementById('user-greeting'),
++    topicSelector: document.getElementById('topic-selector'),
++    topicFeedback: document.getElementById('topic-feedback'),
++    contextTitle: document.getElementById('context-title'),
++    contextCourse: document.getElementById('context-course'),
++    contextSubtopics: document.getElementById('context-subtopics'),
++    contextPlan: document.getElementById('context-plan'),
++    quickSuggestions: document.getElementById('quick-suggestions'),
++    chatMessages: document.getElementById('chat-messages'),
++    chatForm: document.getElementById('chat-form'),
++    chatInput: document.getElementById('chat-input'),
++    chatStatus: document.getElementById('chat-status'),
++    chatTemplate: document.getElementById('chat-message-template'),
++};
++
++const state = {
++    user: null,
++    topics: [],
++    currentTopicId: undefined,
++    currentTopic: null,
++    currentCourse: null,
++    chatHistory: [],
++    inputHistory: [],
++    inputHistoryIndex: null,
++    conversations: new Map(),
++};
++
++document.addEventListener('DOMContentLoaded', () => {
++    selectors.loginForm?.addEventListener('submit', handleLoginSubmit);
++    selectors.logoutButton?.addEventListener('click', handleLogout);
++    selectors.topicSelector?.addEventListener('change', handleTopicChange);
++    selectors.chatForm?.addEventListener('submit', handleChatSubmit);
++    selectors.chatInput?.addEventListener('keydown', handleChatInputKeydown);
++    selectors.quickSuggestions?.addEventListener('click', handleSuggestionClick);
++
++    restoreSession();
++});
++
++function restoreSession() {
++    const tokens = loadTokens();
++    if (!tokens?.access) {
++        showLogin();
++        return;
++    }
++
++    loadChatEnvironment().catch((error) => {
++        console.error('Falha ao restaurar sessão:', error);
++        clearTokens();
++        showLogin('Sua sessão expirou. Entre novamente.');
++    });
++}
++
++async function handleLoginSubmit(event) {
++    event.preventDefault();
++    selectors.loginError.textContent = '';
++
++    const formData = new FormData(selectors.loginForm);
++    const email = formData.get('email');
++    const password = formData.get('password');
++
++    try {
++        const response = await fetch(`${API_BASE_URL}/accounts/auth/jwt/create/`, {
++            method: 'POST',
++            headers: {
++                'Content-Type': 'application/json',
++            },
++            body: JSON.stringify({ email, password }),
++        });
++
++        if (!response.ok) {
++            const errorData = await safeJson(response);
++            const detail = errorData?.detail || 'Não foi possível realizar o login.';
++            throw new Error(detail);
++        }
++
++        const data = await response.json();
++        saveTokens({ access: data.access, refresh: data.refresh });
++        selectors.loginForm.reset();
++
++        await loadChatEnvironment();
++        hideLogin();
++    } catch (error) {
++        console.error('Erro de login:', error);
++        selectors.loginError.textContent = error.message || 'Erro inesperado ao entrar.';
++    }
++}
++
++function handleLogout() {
++    clearTokens();
++    showLogin();
++}
++
++function showLogin(message) {
++    if (message) {
++        selectors.loginError.textContent = message;
++    }
++    selectors.loginOverlay.hidden = false;
++}
++
++function hideLogin() {
++    selectors.loginError.textContent = '';
++    selectors.loginOverlay.hidden = true;
++}
++
++async function loadChatEnvironment() {
++    setTopicFeedback('Carregando seus tópicos...', 'loading');
++    setChatStatus('Selecione um contexto para começar ou envie sua dúvida.', '');
++
++    const [user, topics] = await Promise.all([
++        apiFetch('/accounts/auth/users/me/'),
++        apiFetch('/learning/topics/'),
++    ]);
++
++    state.user = user;
++    updateGreeting(user);
++
++    state.topics = Array.isArray(topics)
++        ? topics
++              .slice()
++              .sort((a, b) => {
++                  const orderDiff = (a.order || 0) - (b.order || 0);
++                  if (orderDiff !== 0) {
++                      return orderDiff;
++                  }
++                  return String(a.title || '').localeCompare(String(b.title || ''));
++              })
++        : [];
++    populateTopicSelector();
++
++    const initialTopicId = state.topics.length ? state.topics[0].id : null;
++    await setActiveTopic(initialTopicId);
++}
++
++function updateGreeting(user) {
++    if (!selectors.greeting) {
++        return;
++    }
++    if (user?.first_name) {
++        selectors.greeting.textContent = `Olá, ${user.first_name}!`;
++    } else if (user?.email) {
++        selectors.greeting.textContent = `Olá, ${user.email.split('@')[0]}!`;
++    } else {
++        selectors.greeting.textContent = 'Olá!';
++    }
++}
++
++function populateTopicSelector() {
++    if (!selectors.topicSelector) {
++        return;
++    }
++
++    selectors.topicSelector.innerHTML = '';
++
++    const defaultOption = document.createElement('option');
++    defaultOption.value = '';
++    defaultOption.textContent = 'Sem contexto específico';
++    selectors.topicSelector.appendChild(defaultOption);
++
++    if (!state.topics.length) {
++        selectors.topicSelector.disabled = false;
++        setTopicFeedback(
++            'Você ainda não possui tópicos cadastrados. O StudyBot responderá sem contexto.',
++            'info',
++        );
++        return;
++    }
++
++    selectors.topicSelector.disabled = false;
++
++    state.topics
++        .slice()
++        .sort((a, b) => (a.order || 0) - (b.order || 0))
++        .forEach((topic) => {
++            const option = document.createElement('option');
++            option.value = topic.id;
++            option.textContent = topic.title;
++            selectors.topicSelector.appendChild(option);
++        });
++
++    selectors.topicSelector.value = state.currentTopicId ?? '';
++}
++
++async function handleTopicChange(event) {
++    const value = event.target.value;
++    const topicId = value ? Number.parseInt(value, 10) : null;
++    await setActiveTopic(Number.isNaN(topicId) ? null : topicId);
++}
++
++async function setActiveTopic(topicId) {
++    if (state.currentTopicId === topicId) {
++        return;
++    }
++
++    state.currentTopicId = topicId || null;
++    setTopicFeedback('Atualizando contexto do StudyBot...', 'loading');
++
++    if (!topicId) {
++        state.currentTopic = null;
++        state.currentCourse = null;
++        selectors.topicSelector.value = '';
++        updateContextPanel();
++        loadConversationForTopic(null);
++        setTopicFeedback('Conversa sem contexto específico. Pergunte o que quiser!', 'success');
++        return;
++    }
++
++    try {
++        const topic = await apiFetch(`/learning/topics/${encodeURIComponent(topicId)}/`);
++        state.currentTopic = topic;
++        selectors.topicSelector.value = topicId;
++
++        if (topic.course) {
++            try {
++                const course = await apiFetch(`/learning/courses/${encodeURIComponent(topic.course)}/`);
++                state.currentCourse = course;
++            } catch (error) {
++                console.warn('Não foi possível carregar os detalhes do curso:', error);
++                state.currentCourse = null;
++            }
++        } else {
++            state.currentCourse = null;
++        }
++
++        updateContextPanel();
++        loadConversationForTopic(topicId);
++        setTopicFeedback('Contexto atualizado com sucesso.', 'success');
++    } catch (error) {
++        console.error('Erro ao carregar o tópico selecionado:', error);
++        state.currentTopic = null;
++        state.currentCourse = null;
++        selectors.topicSelector.value = '';
++        updateContextPanel();
++        loadConversationForTopic(null);
++        setTopicFeedback(error.message || 'Não foi possível carregar o tópico selecionado.', 'error');
++    }
++}
++
++function updateContextPanel() {
++    const topicTitle = state.currentTopic?.title || 'Nenhum tópico selecionado';
++    selectors.contextTitle.textContent = topicTitle;
++
++    const courseTitle = state.currentCourse?.title;
++    selectors.contextCourse.textContent = courseTitle ? `Curso: ${courseTitle}` : '';
++
++    if (!state.currentTopic) {
++        selectors.contextSubtopics.textContent = 'Selecione um tópico para contextualizar suas perguntas.';
++        selectors.contextPlan.textContent =
++            'Escolha um tópico para visualizar o plano sugerido pela IA.';
++        renderQuickSuggestions();
++        return;
++    }
++
++    const subtopics = Array.isArray(state.currentTopic?.subtopics)
++        ? state.currentTopic.subtopics
++        : [];
++    if (subtopics.length) {
++        selectors.contextSubtopics.textContent = `${subtopics.length} subtópico(s) cadastrados.`;
++    } else {
++        selectors.contextSubtopics.textContent = 'Sem subtópicos registrados para este tópico.';
++    }
++
++    const plan = (state.currentTopic?.suggested_study_plan || '').trim();
++    selectors.contextPlan.textContent = plan
++        ? plan
++        : 'Nenhum plano sugerido disponível para este tópico ainda. Use o StudyBot para construir um!';
++
++    renderQuickSuggestions();
++}
++
++function renderQuickSuggestions() {
++    if (!selectors.quickSuggestions) {
++        return;
++    }
++
++    selectors.quickSuggestions.innerHTML = '';
++
++    const topicTitle = state.currentTopic?.title || 'este conteúdo';
++    const suggestions = [
++        {
++            id: 'explain',
++            text: `Explique ${topicTitle}`,
++        },
++        {
++            id: 'examples',
++            text: `Dê exemplos sobre ${topicTitle}`,
++        },
++    ];
++
++    suggestions.forEach((suggestion) => {
++        const button = document.createElement('button');
++        button.type = 'button';
++        button.className = 'quick-suggestion';
++        button.dataset.intent = suggestion.id;
++        button.dataset.payload = suggestion.text;
++        button.textContent = suggestion.text;
++        selectors.quickSuggestions.appendChild(button);
++    });
++}
++
++function handleSuggestionClick(event) {
++    const button = event.target.closest('button[data-payload]');
++    if (!button) {
++        return;
++    }
++
++    const payload = button.dataset.payload;
++    if (!payload || !selectors.chatInput) {
++        return;
++    }
++
++    selectors.chatInput.value = payload;
++    selectors.chatInput.focus();
++    selectors.chatInput.setSelectionRange(payload.length, payload.length);
++    setChatStatus('Sugestão adicionada ao campo de mensagem.', 'info');
++}
++
++async function handleChatSubmit(event) {
++    event.preventDefault();
++
++    const question = selectors.chatInput.value.trim();
++    if (!question) {
++        setChatStatus('Digite uma pergunta para o StudyBot.', 'error');
++        return;
++    }
++
++    const historySnapshot = state.chatHistory.slice(-10).map((message) => ({
++        role: message.role,
++        content: message.content,
++    }));
++
++    appendChatMessage({ role: 'user', content: question });
++    selectors.chatInput.value = '';
++
++    state.inputHistory.push(question);
++    if (state.inputHistory.length > 50) {
++        state.inputHistory = state.inputHistory.slice(-50);
++    }
++    state.inputHistoryIndex = state.inputHistory.length;
++    saveConversationState();
++
++    setChatStatus('Processando sua pergunta...', 'loading');
++    selectors.chatMessages.setAttribute('aria-busy', 'true');
++
++    try {
++        const payload = {
++            question,
++            history: historySnapshot,
++            topic_id: state.currentTopic?.id ?? null,
++        };
++
++        const response = await apiFetch('/chat/ask/', {
++            method: 'POST',
++            body: JSON.stringify(payload),
++        });
++
++        const answer = response?.content || 'Não recebi uma resposta do StudyBot.';
++        appendChatMessage({ role: 'assistant', content: answer });
++        setChatStatus('Tudo certo! Continue explorando suas dúvidas.', 'success');
++    } catch (error) {
++        console.error('Erro ao enviar pergunta para o StudyBot:', error);
++        setChatStatus(error.message || 'Não foi possível enviar sua pergunta.', 'error');
++    } finally {
++        selectors.chatMessages.setAttribute('aria-busy', 'false');
++    }
++}
++
++function handleChatInputKeydown(event) {
++    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
++        event.preventDefault();
++        selectors.chatForm.requestSubmit();
++        return;
++    }
++
++    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
++        return;
++    }
++
++    if (event.shiftKey) {
++        return;
++    }
++
++    const { selectionStart, selectionEnd, value } = event.target;
++    const atStart = selectionStart === 0 && selectionEnd === 0;
++    const atEnd = selectionStart === value.length && selectionEnd === value.length;
++
++    if (event.key === 'ArrowUp' && atStart) {
++        event.preventDefault();
++        navigateInputHistory(-1);
++    } else if (event.key === 'ArrowDown' && atEnd) {
++        event.preventDefault();
++        navigateInputHistory(1);
++    }
++}
++
++function navigateInputHistory(step) {
++    if (!state.inputHistory.length || !selectors.chatInput) {
++        return;
++    }
++
++    if (state.inputHistoryIndex === null) {
++        state.inputHistoryIndex = state.inputHistory.length;
++    }
++
++    let nextIndex = state.inputHistoryIndex + step;
++    if (nextIndex < 0) {
++        nextIndex = 0;
++    }
++    if (nextIndex > state.inputHistory.length) {
++        nextIndex = state.inputHistory.length;
++    }
++
++    state.inputHistoryIndex = nextIndex;
++
++    if (nextIndex === state.inputHistory.length) {
++        selectors.chatInput.value = '';
++    } else {
++        selectors.chatInput.value = state.inputHistory[nextIndex];
++    }
++
++    const caret = selectors.chatInput.value.length;
++    selectors.chatInput.setSelectionRange(caret, caret);
++}
++
++function loadConversationForTopic(topicId) {
++    const key = getConversationKey(topicId);
++    const conversation = state.conversations.get(key);
++
++    state.chatHistory = conversation?.messages?.slice() || [];
++    state.inputHistory = conversation?.inputHistory?.slice() || [];
++    state.inputHistoryIndex = state.inputHistory.length;
++
++    renderChatHistory();
++    if (!state.chatHistory.length) {
++        setChatStatus('Envie sua primeira pergunta para iniciar a conversa.', 'info');
++    } else {
++        setChatStatus('Conversa carregada. Continue de onde parou!', 'success');
++    }
++}
++
++function renderChatHistory() {
++    if (!selectors.chatMessages) {
++        return;
++    }
++
++    selectors.chatMessages.innerHTML = '';
++    state.chatHistory.forEach((message) => {
++        appendChatMessage(message, { persist: false });
++    });
++    selectors.chatMessages.scrollTop = selectors.chatMessages.scrollHeight;
++    selectors.chatMessages.setAttribute('aria-busy', 'false');
++}
++
++function appendChatMessage(message, { persist = true } = {}) {
++    if (!selectors.chatTemplate || !selectors.chatMessages) {
++        return;
++    }
++
++    const normalized = normalizeMessage(message);
++    const element = createChatElement(normalized);
++    selectors.chatMessages.appendChild(element);
++    selectors.chatMessages.scrollTop = selectors.chatMessages.scrollHeight;
++
++    if (persist) {
++        state.chatHistory.push(normalized);
++        if (state.chatHistory.length > 40) {
++            state.chatHistory = state.chatHistory.slice(-40);
++        }
++        saveConversationState();
++    }
++}
++
++function normalizeMessage(message) {
++    const role = message.role === 'assistant' ? 'assistant' : 'user';
++    const timestamp = message.timestamp || new Date().toISOString();
++    return {
++        role,
++        content: message.content,
++        timestamp,
++    };
++}
++
++function createChatElement(message) {
++    const clone = selectors.chatTemplate.content.firstElementChild.cloneNode(true);
++    clone.classList.add(`chat-message--${message.role}`);
++    clone.querySelector('.chat-author').textContent = message.role === 'assistant' ? 'StudyBot' : 'Você';
++
++    const timestamp = new Date(message.timestamp);
++    clone.querySelector('.chat-timestamp').textContent = Number.isNaN(timestamp.getTime())
++        ? ''
++        : timestamp.toLocaleTimeString([], {
++              hour: '2-digit',
++              minute: '2-digit',
++          });
++
++    clone.querySelector('.chat-content').textContent = message.content;
++    return clone;
++}
++
++function saveConversationState() {
++    const key = getConversationKey(state.currentTopicId);
++    state.conversations.set(key, {
++        messages: state.chatHistory.slice(),
++        inputHistory: state.inputHistory.slice(),
++    });
++}
++
++function getConversationKey(topicId) {
++    return topicId ? `topic-${topicId}` : 'global';
++}
++
++function setChatStatus(message, status) {
++    if (!selectors.chatStatus) {
++        return;
++    }
++    selectors.chatStatus.textContent = message || '';
++    selectors.chatStatus.dataset.status = status || '';
++}
++
++function setTopicFeedback(message, status) {
++    if (!selectors.topicFeedback) {
++        return;
++    }
++    selectors.topicFeedback.textContent = message || '';
++    selectors.topicFeedback.dataset.status = status || '';
++}
++
++function loadTokens() {
++    try {
++        const stored = window.localStorage.getItem(STORAGE_KEY);
++        return stored ? JSON.parse(stored) : null;
++    } catch (error) {
++        console.warn('Não foi possível carregar os tokens salvos:', error);
++        return null;
++    }
++}
++
++function saveTokens(tokens) {
++    try {
++        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
++    } catch (error) {
++        console.warn('Não foi possível salvar os tokens:', error);
++    }
++}
++
++function clearTokens() {
++    try {
++        window.localStorage.removeItem(STORAGE_KEY);
++    } catch (error) {
++        console.warn('Não foi possível limpar os tokens:', error);
++    }
++}
++
++async function refreshAccessToken(refreshToken) {
++    const response = await fetch(`${API_BASE_URL}/accounts/auth/jwt/refresh/`, {
++        method: 'POST',
++        headers: {
++            'Content-Type': 'application/json',
++        },
++        body: JSON.stringify({ refresh: refreshToken }),
++    });
++
++    if (!response.ok) {
++        throw new Error('Não foi possível atualizar a sessão.');
++    }
++
++    const data = await response.json();
++    if (!data?.access) {
++        throw new Error('Resposta inválida ao atualizar token.');
++    }
++
++    const tokens = loadTokens() || {};
++    tokens.access = data.access;
++    saveTokens(tokens);
++    return data.access;
++}
++
++async function apiFetch(path, options = {}, { allowEmpty = false, retryOn401 = true } = {}) {
++    const tokens = loadTokens();
++    if (!tokens?.access) {
++        throw new Error('Sessão inválida');
++    }
++
++    const url = `${API_BASE_URL}${path}`;
++    const headers = new Headers(options.headers || {});
++    headers.set('Authorization', `Bearer ${tokens.access}`);
++    if (!headers.has('Content-Type') && options.body) {
++        headers.set('Content-Type', 'application/json');
++    }
++
++    const response = await fetch(url, { ...options, headers });
++
++    if (response.status === 401 && retryOn401 && tokens.refresh) {
++        try {
++            const newAccess = await refreshAccessToken(tokens.refresh);
++            headers.set('Authorization', `Bearer ${newAccess}`);
++            const retryResponse = await fetch(url, { ...options, headers, body: options.body });
++            return await handleApiResponse(retryResponse, allowEmpty);
++        } catch (error) {
++            clearTokens();
++            throw error;
++        }
++    }
++
++    return handleApiResponse(response, allowEmpty);
++}
++
++async function handleApiResponse(response, allowEmpty) {
++    if (!response.ok) {
++        const errorData = await safeJson(response);
++        const detail =
++            errorData?.detail || errorData?.error || 'Ocorreu um erro ao comunicar com o servidor.';
++        throw new Error(detail);
++    }
++
++    if (response.status === 204 || response.headers.get('Content-Length') === '0') {
++        return allowEmpty ? null : {};
++    }
++
++    const data = await safeJson(response);
++    if (data === null && !allowEmpty) {
++        throw new Error('Resposta inesperada do servidor.');
++    }
++    return data;
++}
++
++async function safeJson(response) {
++    try {
++        return await response.clone().json();
++    } catch (error) {
++        return null;
++    }
++}
+diff --git a/frontend/planner.html b/frontend/planner.html
+index 5ea2914390ea46573a763d0274dce5795b36a63a..1a5e0ddced629c4274453afeff6d28c5e2448e5c 100644
+--- a/frontend/planner.html
++++ b/frontend/planner.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Planejador Semanal</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/planner.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Planeje a sua semana com blocos inteligentes</p>
+                 </div>
+             </div>
+             <div class="user-actions">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="planner-main">
+             <section class="panel planner-header" aria-label="Resumo semanal">
+                 <div>
+                     <span class="panel-subtitle">Planejamento Semanal</span>
+                     <h2 id="planner-week-range">Semana atual</h2>
+                     <p id="planner-summary" class="planner-summary-text"></p>
+                 </div>
+                 <div class="planner-header-actions">
+                     <button id="refresh-planner" class="ghost-button ghost-button--small" type="button">
+                         Atualizar
+                     </button>
+                     <button id="open-create-plan" class="primary-button" type="button">
+                         Adicionar plano
+                     </button>
+                 </div>
+             </section>
+ 
+diff --git a/frontend/quiz-results.html b/frontend/quiz-results.html
+index 48794dc93d4f185e0fbe2e607494de14cfa989f1..e2322dca92d5f437ec57c9735b611915deab6694 100644
+--- a/frontend/quiz-results.html
++++ b/frontend/quiz-results.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Resultados do Quiz</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/quiz-results.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Confira seus resultados e aprenda com cada tentativa</p>
+                 </div>
+             </div>
+             <div class="results-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="quiz-results-layout" aria-live="polite">
+             <section class="panel results-hero" aria-label="Destaque da pontuação">
+                 <header class="results-hero__header">
+                     <span class="panel-subtitle">Resultados do Quiz</span>
+                     <h2 id="quiz-title">Carregando...</h2>
+                     <p id="quiz-description" class="panel-subtitle"></p>
+                 </header>
+                 <div class="results-hero__grid">
+                     <div class="score-display" aria-live="assertive" aria-atomic="true">
+                         <span class="score-display__label">Pontuação</span>
+                         <strong id="score-value" class="score-display__value">--%</strong>
+                         <p id="score-feedback" class="score-display__feedback"></p>
+                     </div>
+                     <dl class="score-stats">
+                         <div>
+                             <dt>Acertos</dt>
+                             <dd id="stat-correct">--</dd>
+diff --git a/frontend/quiz.html b/frontend/quiz.html
+index 281af0c097c7c88d33772c92f3a4973f5d9a45cf..7c9e3c428b559ea6230199831f4b100ae9248d9c 100644
+--- a/frontend/quiz.html
++++ b/frontend/quiz.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Resolver quiz</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/quiz-session.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Resolva o quiz no seu ritmo, com foco e organização</p>
+                 </div>
+             </div>
+             <div class="quiz-session-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="quiz-session-layout">
+             <section class="panel question-panel" aria-live="polite">
+                 <header class="question-panel__header">
+                     <div>
+                         <span id="question-counter" class="panel-subtitle">Carregando quiz...</span>
+                         <h2 id="quiz-title">—</h2>
+                         <p id="quiz-topic" class="panel-subtitle"></p>
+                     </div>
+                     <div class="question-panel__meta">
+                         <span id="quiz-description"></span>
+                         <span id="attempt-summary"></span>
+                     </div>
+                 </header>
+ 
+                 <article class="question-panel__body">
+                     <h3 id="question-text" class="question-text">Selecione um quiz para começar.</h3>
+                     <ul id="question-choices" class="question-choices" role="radiogroup" aria-live="polite"></ul>
+diff --git a/frontend/quizzes.html b/frontend/quizzes.html
+index eb9091da20f1c6ea25e67d9d7a34967268922bad..aa4d3cb85a6a5a00ac3c5434e62968c83624b949 100644
+--- a/frontend/quizzes.html
++++ b/frontend/quizzes.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Central de Quizzes</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/quizzes.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Central de quizzes personalizada para o seu progresso</p>
+                 </div>
+             </div>
+             <div class="quiz-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="quiz-layout">
+             <section class="panel quiz-summary" aria-label="Resumo dos quizzes">
+                 <header class="quiz-summary__header">
+                     <div>
+                         <span class="panel-subtitle">Status geral</span>
+                         <h2>Central de Quizzes</h2>
+                     </div>
+                     <button id="generate-quiz" class="primary-button" type="button">Gerar novo quiz</button>
+                 </header>
+                 <dl class="quiz-summary__stats">
+                     <div>
+                         <dt>Total de quizzes</dt>
+                         <dd id="stat-total">--</dd>
+                     </div>
+                     <div>
+                         <dt>Não iniciados</dt>
+                         <dd id="stat-not-started">--</dd>
+diff --git a/frontend/schedule.html b/frontend/schedule.html
+index 8410d6ad4d20e15cbc6ee11c9a711372d5416cb0..9dd8ae24339b1f119f76998cd03d0c87e33c6b08 100644
+--- a/frontend/schedule.html
++++ b/frontend/schedule.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Cronograma Gerado (IA)</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/schedule.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Visualize o cronograma inteligente gerado pela IA</p>
+                 </div>
+             </div>
+             <div class="schedule-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="schedule-main">
+             <section class="panel schedule-overview" aria-label="Cronograma gerado">
+                 <header class="schedule-overview__header">
+                     <div>
+                         <span class="panel-subtitle">Cronograma Gerado (IA)</span>
+                         <h2 id="schedule-topic-title">Selecione um tópico para gerar o cronograma</h2>
+                         <p id="schedule-course-title" class="panel-subtitle"></p>
+                     </div>
+                     <div class="schedule-overview__actions">
+                         <button id="regenerate-schedule" class="ghost-button ghost-button--small" type="button">
+                             Gerar novamente
+                         </button>
+                         <button id="accept-schedule" class="primary-button" type="button">
+                             Aceitar cronograma
+                         </button>
+                     </div>
+                 </header>
+diff --git a/frontend/study-log.html b/frontend/study-log.html
+index 99a41467dcfef0a4736e1aa7964568d86abc4973..39677e6c4895e24770a31c5fc6c7400021a8c381 100644
+--- a/frontend/study-log.html
++++ b/frontend/study-log.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Registro de Estudo</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/study-log.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Registre sessões e acompanhe seu progresso diário</p>
+                 </div>
+             </div>
+             <div class="study-log-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small is-active" href="study-log.html" aria-current="page">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="study-log-main">
+             <section class="panel study-log-register" aria-label="Registro de estudo manual">
+                 <header class="study-log-register__header">
+                     <div>
+                         <span class="panel-subtitle">Sessão rápida</span>
+                         <h2>Registrar novo estudo</h2>
+                         <p>Preencha os campos ou use o timer integrado para calcular o tempo dedicado.</p>
+                     </div>
+                 </header>
+                 <div class="study-log-register__content">
+                     <form id="study-log-form" class="study-log-form">
+                         <div class="study-log-form__grid">
+                             <label class="study-log-field" for="study-course">
+                                 <span>Curso</span>
+                                 <select id="study-course" name="course" required>
+                                     <option value="">Selecione um curso</option>
+diff --git a/frontend/study.html b/frontend/study.html
+index a60c230ba44d79b5a40afe8885247844b59f4151..31cc2ff337d21ee312ec90a13997223df56a1263 100644
+--- a/frontend/study.html
++++ b/frontend/study.html
+@@ -5,50 +5,51 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Modo Foco</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="stylesheet" href="styles/study.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Modo foco para aprofundar nos seus subtópicos</p>
+                 </div>
+             </div>
+             <div class="study-nav">
+                 <a class="ghost-button ghost-button--small" href="index.html">⬅ Voltar ao dashboard</a>
+                 <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                 <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="studybot.html">StudyBot</a>
+                 <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                 <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                 <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="study-layout">
+             <section class="panel focus-panel" aria-label="Modo foco do subtópico selecionado">
+                 <header>
+                     <span class="panel-subtitle">Estudo guiado</span>
+                     <h2 id="focus-topic-title">Selecione um tópico para começar</h2>
+                     <p id="focus-progress" class="panel-subtitle"></p>
+                 </header>
+                 <div class="focus-controls">
+                     <div class="focus-main">
+                         <div class="focus-breadcrumbs">
+                             <label class="focus-field" for="topic-selector">
+                                 <span>Tópico</span>
+                                 <select id="topic-selector" class="focus-select" aria-label="Selecionar tópico"></select>
+                             </label>
+                             <label class="focus-field" for="subtopic-selector">
+                                 <span>Subtópico</span>
+                                 <select id="subtopic-selector" class="focus-select" aria-label="Selecionar subtópico"></select>
+diff --git a/frontend/studybot.html b/frontend/studybot.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..35e326ed51692ccb8f6749febe966fad1a314eae
+--- /dev/null
++++ b/frontend/studybot.html
+@@ -0,0 +1,140 @@
++<!DOCTYPE html>
++<html lang="pt-BR">
++<head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>Assistente de Estudos - StudyBot</title>
++    <link rel="stylesheet" href="styles/dashboard.css" />
++    <link rel="stylesheet" href="styles/studybot.css" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
++        rel="stylesheet"
++    />
++</head>
++<body data-api-base="http://localhost:8000/api">
++    <div class="app-shell">
++        <header class="app-header">
++            <div class="logo-area">
++                <div class="logo">PI2</div>
++                <div class="header-text">
++                    <h1>Assistente de Estudos</h1>
++                    <p>Converse com o StudyBot usando o contexto certo</p>
++                </div>
++            </div>
++            <div class="user-actions">
++                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
++                <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
++                <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
++                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
++                <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
++                <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
++                <a class="ghost-button ghost-button--small" href="analytics.html">Analytics</a>
++                <span id="user-greeting" class="user-greeting">Olá!</span>
++                <button id="logout-button" class="ghost-button" type="button">Sair</button>
++            </div>
++        </header>
++
++        <main class="studybot-layout">
++            <section class="panel context-panel" aria-label="Seleção de contexto do StudyBot">
++                <header>
++                    <span class="panel-subtitle">Contexto do estudo</span>
++                    <h2>Escolha um tópico para a conversa</h2>
++                </header>
++
++                <div class="context-selector">
++                    <label class="focus-field" for="topic-selector">
++                        <span>Tópico atual</span>
++                        <select id="topic-selector" class="focus-select" aria-label="Selecionar tópico para o StudyBot"></select>
++                    </label>
++                    <p id="topic-feedback" class="form-feedback" role="status"></p>
++                </div>
++
++                <article class="context-summary" aria-live="polite">
++                    <h3 id="context-title">Nenhum tópico selecionado</h3>
++                    <p id="context-course" class="context-course"></p>
++                    <p id="context-subtopics" class="context-subtopics"></p>
++                </article>
++
++                <section class="context-plan" aria-label="Plano sugerido para o tópico">
++                    <h3>Plano sugerido</h3>
++                    <p id="context-plan" class="context-plan__text"></p>
++                </section>
++            </section>
++
++            <section class="panel chat-panel" aria-label="Chat com o StudyBot">
++                <header>
++                    <span class="panel-subtitle">StudyBot (Chat)</span>
++                    <h2>Explore dúvidas em tempo real</h2>
++                </header>
++
++                <div
++                    id="quick-suggestions"
++                    class="quick-suggestions"
++                    role="group"
++                    aria-label="Sugestões rápidas para conversar com o StudyBot"
++                ></div>
++
++                <div id="chat-messages" class="chat-messages" aria-live="polite" aria-busy="false"></div>
++
++                <form id="chat-form" class="chat-form">
++                    <label class="focus-field" for="chat-input">
++                        <span>Sua pergunta</span>
++                        <textarea
++                            id="chat-input"
++                            rows="3"
++                            placeholder="Digite uma dúvida ou peça uma explicação"
++                            required
++                        ></textarea>
++                    </label>
++                    <div class="chat-actions">
++                        <span id="chat-status" class="form-feedback" role="status"></span>
++                        <button class="primary-button" type="submit">Enviar</button>
++                    </div>
++                    <p class="chat-hint">Use Ctrl + Enter para enviar rapidamente. Utilize ↑ e ↓ para navegar pelo histórico.</p>
++                </form>
++            </section>
++        </main>
++    </div>
++
++    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
++        <form id="login-form" class="login-card">
++            <h2>Entrar</h2>
++            <p>Acesse sua conta para conversar com o StudyBot.</p>
++            <label for="email">E-mail</label>
++            <input
++                id="email"
++                name="email"
++                type="email"
++                required
++                autocomplete="email"
++                placeholder="seu-email@exemplo.com"
++            />
++            <label for="password">Senha</label>
++            <input
++                id="password"
++                name="password"
++                type="password"
++                required
++                autocomplete="current-password"
++                placeholder="••••••••"
++            />
++            <button type="submit" class="primary-button">Entrar</button>
++            <p id="login-error" class="form-error" role="alert"></p>
++        </form>
++    </div>
++
++    <template id="chat-message-template">
++        <article class="chat-message">
++            <header class="chat-message-header">
++                <span class="chat-author"></span>
++                <time class="chat-timestamp"></time>
++            </header>
++            <p class="chat-content"></p>
++        </article>
++    </template>
++
++    <script src="js/studybot.js" type="module"></script>
++</body>
++</html>
+diff --git a/frontend/styles/studybot.css b/frontend/styles/studybot.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..990fa581c9561400adbf7bddaf757a75867ce3f1
+--- /dev/null
++++ b/frontend/styles/studybot.css
+@@ -0,0 +1,233 @@
++:root {
++    --chat-user: var(--primary);
++    --chat-assistant: var(--primary-dark);
++    --chat-background: var(--surface-alt);
++}
++
++.studybot-layout {
++    display: grid;
++    grid-template-columns: minmax(260px, 360px) 1fr;
++    gap: 1.5rem;
++    padding: 1.5rem;
++}
++
++.focus-field {
++    display: flex;
++    flex-direction: column;
++    gap: 0.4rem;
++    font-size: 0.9rem;
++}
++
++.focus-select,
++.focus-field select,
++.focus-field textarea,
++.focus-field input {
++    border: 1px solid var(--border);
++    border-radius: 0.75rem;
++    padding: 0.65rem 0.75rem;
++    background: var(--surface-alt);
++    color: var(--text-primary);
++    font-family: inherit;
++}
++
++.focus-field textarea {
++    resize: vertical;
++}
++
++.context-panel {
++    display: flex;
++    flex-direction: column;
++    gap: 1.25rem;
++}
++
++.context-selector {
++    display: flex;
++    flex-direction: column;
++    gap: 0.75rem;
++}
++
++.context-summary h3 {
++    font-size: 1.15rem;
++    margin-bottom: 0.25rem;
++}
++
++.context-course,
++.context-subtopics {
++    color: var(--muted);
++    margin-bottom: 0.25rem;
++}
++
++.context-plan {
++    background: var(--surface-alt);
++    border-radius: 0.75rem;
++    padding: 1rem;
++    display: flex;
++    flex-direction: column;
++    gap: 0.5rem;
++}
++
++.context-plan h3 {
++    font-size: 1rem;
++    font-weight: 600;
++}
++
++.context-plan__text {
++    line-height: 1.5;
++    white-space: pre-line;
++}
++
++.form-feedback {
++    font-size: 0.85rem;
++    color: var(--muted);
++}
++
++.form-feedback[data-status='error'] {
++    color: var(--danger);
++}
++
++.form-feedback[data-status='success'] {
++    color: var(--success);
++}
++
++.form-feedback[data-status='loading'] {
++    color: var(--warning);
++}
++
++.form-feedback[data-status='info'] {
++    color: var(--primary-dark);
++}
++
++.chat-panel {
++    display: flex;
++    flex-direction: column;
++    gap: 1rem;
++}
++
++.quick-suggestions {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.5rem;
++}
++
++.quick-suggestion {
++    border: 1px solid var(--surface-alt);
++    border-radius: 999px;
++    background: transparent;
++    color: var(--primary-dark);
++    font-size: 0.85rem;
++    font-weight: 500;
++    padding: 0.5rem 0.9rem;
++    transition: background 0.2s ease, border-color 0.2s ease;
++}
++
++.quick-suggestion:hover,
++.quick-suggestion:focus {
++    background: var(--surface-alt);
++    border-color: var(--primary);
++}
++
++.chat-messages {
++    flex: 1;
++    overflow-y: auto;
++    border: 1px solid var(--surface-alt);
++    border-radius: 1rem;
++    padding: 1rem;
++    display: flex;
++    flex-direction: column;
++    gap: 0.75rem;
++    background: var(--background);
++    min-height: 320px;
++}
++
++.chat-message {
++    background: var(--chat-background);
++    border-radius: 0.9rem;
++    padding: 0.75rem 0.9rem;
++    display: flex;
++    flex-direction: column;
++    gap: 0.25rem;
++}
++
++.chat-message--user {
++    align-self: flex-end;
++    background: rgba(66, 133, 244, 0.12);
++}
++
++.chat-message--assistant {
++    align-self: flex-start;
++    background: rgba(15, 157, 88, 0.12);
++}
++
++.chat-message-header {
++    display: flex;
++    gap: 0.5rem;
++    align-items: baseline;
++    font-size: 0.75rem;
++    font-weight: 600;
++    color: var(--muted);
++}
++
++.chat-content {
++    font-size: 0.95rem;
++    line-height: 1.5;
++}
++
++.chat-form {
++    display: flex;
++    flex-direction: column;
++    gap: 0.75rem;
++}
++
++.chat-actions {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.chat-status[data-status='loading'] {
++    color: var(--warning);
++}
++
++.chat-status[data-status='error'] {
++    color: var(--danger);
++}
++
++.chat-status[data-status='success'] {
++    color: var(--success);
++}
++
++.chat-hint {
++    font-size: 0.8rem;
++    color: var(--muted);
++    margin-top: -0.5rem;
++}
++
++@media (max-width: 1024px) {
++    .studybot-layout {
++        grid-template-columns: 1fr;
++    }
++
++    .context-panel {
++        order: 2;
++    }
++
++    .chat-panel {
++        order: 1;
++    }
++}
++
++@media (max-width: 640px) {
++    .studybot-layout {
++        padding: 1rem;
++    }
++
++    .chat-actions {
++        flex-direction: column;
++        align-items: flex-start;
++    }
++
++    .chat-actions button {
++        align-self: stretch;
++    }
++}
