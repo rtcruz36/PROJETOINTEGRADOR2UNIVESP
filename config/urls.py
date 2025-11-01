@@ -24,6 +24,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 
 urlpatterns = [
+    # Rotas do frontend estático
+    path('', include('apps.core.urls')),
+
     # 1. Rota para a interface de administração do Django
     path('admin/', admin.site.urls),
 
