@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Registro de Estudo</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/study-log.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Registre sessões e acompanhe seu progresso diário</p>
+                </div>
+            </div>
+            <div class="study-log-nav">
+                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
+                <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                <a class="ghost-button ghost-button--small is-active" href="study-log.html" aria-current="page">Registro de estudo</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="study-log-main">
+            <section class="panel study-log-register" aria-label="Registro de estudo manual">
+                <header class="study-log-register__header">
+                    <div>
+                        <span class="panel-subtitle">Sessão rápida</span>
+                        <h2>Registrar novo estudo</h2>
+                        <p>Preencha os campos ou use o timer integrado para calcular o tempo dedicado.</p>
+                    </div>
+                </header>
+                <div class="study-log-register__content">
+                    <form id="study-log-form" class="study-log-form">
+                        <div class="study-log-form__grid">
+                            <label class="study-log-field" for="study-course">
+                                <span>Curso</span>
+                                <select id="study-course" name="course" required>
+                                    <option value="">Selecione um curso</option>
+                                </select>
+                            </label>
+                            <label class="study-log-field" for="study-topic">
+                                <span>Tópico (opcional)</span>
+                                <select id="study-topic" name="topic" disabled>
+                                    <option value="">Selecione um curso primeiro</option>
+                                </select>
+                            </label>
+                            <label class="study-log-field" for="study-date">
+                                <span>Data</span>
+                                <input id="study-date" name="date" type="date" required />
+                            </label>
+                            <label class="study-log-field" for="study-minutes">
+                                <span>Minutos estudados</span>
+                                <input id="study-minutes" name="minutes_studied" type="number" min="1" required />
+                            </label>
+                        </div>
+                        <label class="study-log-field study-log-field--full" for="study-notes">
+                            <span>Notas</span>
+                            <textarea
+                                id="study-notes"
+                                name="notes"
+                                rows="4"
+                                placeholder="Resumo do que foi estudado, dificuldades ou próximos passos"
+                            ></textarea>
+                        </label>
+                        <div class="study-log-form__actions">
+                            <button id="study-submit" class="primary-button" type="submit">Salvar registro</button>
+                            <p id="study-form-feedback" class="form-feedback" role="status"></p>
+                        </div>
+                    </form>
+
+                    <aside class="study-log-timer" aria-live="polite">
+                        <header class="study-log-timer__header">
+                            <h3>Timer integrado</h3>
+                            <p id="study-timer-status" class="panel-subtitle">Pronto para começar</p>
+                        </header>
+                        <div class="study-log-timer__display" role="timer" aria-atomic="true">
+                            <span id="study-timer-output">00:00</span>
+                        </div>
+                        <div class="study-log-timer__actions">
+                            <button id="study-timer-start" class="primary-button" type="button">Estudar agora</button>
+                            <button id="study-timer-pause" class="ghost-button ghost-button--small" type="button">Pausar</button>
+                            <button id="study-timer-finish" class="ghost-button ghost-button--small" type="button">Finalizar sessão</button>
+                        </div>
+                        <p class="study-log-timer__hint">
+                            Ao finalizar, o tempo total será preenchido automaticamente no formulário.
+                        </p>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="panel study-log-history" aria-label="Histórico recente de estudos">
+                <header class="study-log-history__header">
+                    <div>
+                        <span class="panel-subtitle">Últimas sessões</span>
+                        <h2>Histórico recente</h2>
+                        <p>Acompanhe seus últimos registros e mantenha a consistência.</p>
+                    </div>
+                    <button id="study-refresh-history" class="ghost-button ghost-button--small" type="button">Atualizar</button>
+                </header>
+                <p id="study-history-feedback" class="form-feedback" role="status"></p>
+                <ul id="study-history-list" class="study-log-history__list" aria-live="polite"></ul>
+                <p id="study-history-empty" class="study-log-history__empty" hidden>
+                    Nenhum estudo registrado ainda. Utilize o formulário ao lado para registrar sua primeira sessão.
+                </p>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para registrar seus estudos.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <template id="study-history-item-template">
+        <li class="study-log-history__item">
+            <header>
+                <div class="study-log-history__info">
+                    <strong class="study-log-history__course"></strong>
+                    <span class="study-log-history__topic"></span>
+                </div>
+                <div class="study-log-history__meta">
+                    <span class="study-log-history__minutes"></span>
+                    <time class="study-log-history__date"></time>
+                </div>
+            </header>
+            <p class="study-log-history__notes"></p>
+        </li>
+    </template>
+
+    <script src="js/study-log.js" type="module"></script>
+</body>
+</html>
