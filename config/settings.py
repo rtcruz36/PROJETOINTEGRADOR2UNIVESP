@@ -13,6 +13,14 @@ import os
 import sys
 from decouple import config
 from pathlib import Path
+from apps.accounts.apps import AccountsConfig
+from apps.core.apps import CoreConfig
+from apps.learning.apps import LearningConfig
+from apps.scheduling.apps import SchedulingConfig
+from apps.assessment.apps import AssessmentConfig
+from apps.studychat.apps import StudychatConfig
+from apps.analytics.apps import AnalyticsConfig
+# --- INÍCIO DA CORREÇÃO DEFINITIVA PARA IMPORTAÇÃO DOS APPS ---
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,13 +48,13 @@ ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 INSTALLED_APPS = [
     # MEUS APPS (PRIMEIRO)
     # O app que define o AUTH_USER_MODEL deve vir antes de 'django.contrib.auth'
-    'apps.accounts.AccountsConfig',
-    'apps.core.CoreConfig',
-    'apps.learning.LearningConfig',
-    'apps.scheduling.SchedulingConfig',
-    'apps.assessment.AssessmentConfig',
-    'apps.studychat.StudychatConfig',
-    'apps.analytics.AnalyticsConfig',
+    'apps.accounts.apps.AccountsConfig',
+    'apps.core.apps.CoreConfig',
+    'apps.learning.apps.LearningConfig',
+    'apps.scheduling.apps.SchedulingConfig',
+    'apps.assessment.apps.AssessmentConfig',
+    'apps.studychat.apps.StudychatConfig',
+    'apps.analytics.apps.AnalyticsConfig',
     'rest_framework',# Django Rest Framework
     'rest_framework.authtoken',# Djoser precisa deste
     'rest_framework_simplejwt.token_blacklist',
