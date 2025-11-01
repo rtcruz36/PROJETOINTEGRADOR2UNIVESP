@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Analytics</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/analytics.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Insights completos sobre seu desempenho e hábitos</p>
+                </div>
+            </div>
+            <div class="analytics-nav">
+                <a class="ghost-button ghost-button--small" href="index.html">Dashboard</a>
+                <a class="ghost-button ghost-button--small" href="planner.html">Planejador semanal</a>
+                <a class="ghost-button ghost-button--small" href="schedule.html">Cronograma IA</a>
+                <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                <a class="ghost-button ghost-button--small" href="quizzes.html">Central de quizzes</a>
+                <a class="ghost-button ghost-button--small" href="study-log.html">Registro de estudo</a>
+                <a class="ghost-button ghost-button--small is-active" href="analytics.html" aria-current="page">Analytics</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="analytics-main">
+            <section class="analytics-summary" aria-label="Resumo rápido">
+                <article class="analytics-card">
+                    <h2>Correlação estudo x notas</h2>
+                    <p id="correlation-summary" class="analytics-card__summary"></p>
+                    <p id="correlation-interpretation" class="analytics-card__interpretation"></p>
+                </article>
+                <article class="analytics-card">
+                    <h2>Evolução das notas</h2>
+                    <p id="progress-summary" class="analytics-card__summary"></p>
+                </article>
+                <article class="analytics-card">
+                    <h2>Hábitos de estudo</h2>
+                    <p id="engagement-summary" class="analytics-card__summary"></p>
+                </article>
+            </section>
+
+            <section class="analytics-grid" aria-label="Visualizações analíticas">
+                <article class="analytics-panel" aria-labelledby="panel-correlation-title">
+                    <header class="analytics-panel__header">
+                        <div>
+                            <span class="panel-subtitle">Correlação</span>
+                            <h2 id="panel-correlation-title">Tempo de estudo x nota média</h2>
+                        </div>
+                        <p id="correlation-status" class="analytics-panel__status" role="status"></p>
+                    </header>
+                    <div class="chart-container">
+                        <canvas id="correlation-chart" aria-label="Gráfico de dispersão entre tempo estudado e nota média"></canvas>
+                    </div>
+                    <footer class="analytics-panel__footer">
+                        <p><strong>Pontos avaliados:</strong> <span id="correlation-count">0</span></p>
+                    </footer>
+                </article>
+
+                <article class="analytics-panel" aria-labelledby="panel-progress-title">
+                    <header class="analytics-panel__header">
+                        <div>
+                            <span class="panel-subtitle">Evolução temporal</span>
+                            <h2 id="panel-progress-title">Notas médias ao longo do tempo</h2>
+                        </div>
+                        <p id="progress-status" class="analytics-panel__status" role="status"></p>
+                    </header>
+                    <div class="chart-container">
+                        <canvas id="progress-chart" aria-label="Gráfico de linha com evolução das notas"></canvas>
+                    </div>
+                    <footer class="analytics-panel__footer">
+                        <p><strong>Total de tentativas:</strong> <span id="progress-total">0</span></p>
+                    </footer>
+                </article>
+
+                <article class="analytics-panel analytics-panel--wide" aria-labelledby="panel-heatmap-title">
+                    <header class="analytics-panel__header">
+                        <div>
+                            <span class="panel-subtitle">Padrões semanais</span>
+                            <h2 id="panel-heatmap-title">Heatmap de estudo (dia x hora)</h2>
+                        </div>
+                        <p id="heatmap-status" class="analytics-panel__status" role="status"></p>
+                    </header>
+                    <div class="heatmap" role="img" aria-label="Heatmap com intensidade de minutos estudados">
+                        <div class="heatmap-legend">
+                            <span>Menos</span>
+                            <div class="heatmap-legend__scale" aria-hidden="true">
+                                <span></span><span></span><span></span><span></span><span></span>
+                            </div>
+                            <span>Mais</span>
+                        </div>
+                        <div class="heatmap-grid" id="heatmap-grid"></div>
+                    </div>
+                </article>
+
+                <article class="analytics-panel analytics-panel--wide" aria-labelledby="panel-topics-title">
+                    <header class="analytics-panel__header">
+                        <div>
+                            <span class="panel-subtitle">Comparativo</span>
+                            <h2 id="panel-topics-title">Comparação entre tópicos</h2>
+                        </div>
+                        <p id="topics-status" class="analytics-panel__status" role="status"></p>
+                    </header>
+                    <div class="topics-table-wrapper">
+                        <table class="topics-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Tópico</th>
+                                    <th scope="col">Disciplina</th>
+                                    <th scope="col">Minutos</th>
+                                    <th scope="col">Sessões</th>
+                                    <th scope="col">Tentativas</th>
+                                    <th scope="col">Média (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topics-table-body"></tbody>
+                        </table>
+                        <p id="topics-empty" class="topics-empty" hidden>
+                            Registre novas sessões de estudo e tente quizzes para liberar esta comparação.
+                        </p>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para visualizar suas métricas analíticas.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/analytics.js" type="module"></script>
+</body>
+</html>
