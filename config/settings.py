@@ -137,11 +137,24 @@ DJOSER = {
         'current_user': 'apps.accounts.serializers.UserSerializer',
         'set_password': 'apps.accounts.serializers.SetPasswordSerializer',
     },
+    'EMAIL': {
+        'activation': 'apps.accounts.email.ActivationEmail',
+        'confirmation': 'apps.accounts.email.ConfirmationEmail',
+        'password_reset': 'apps.accounts.email.PasswordResetEmail',
+        'password_reset_confirmation': 'apps.accounts.email.PasswordResetConfirmationEmail',
+        'password_changed_confirmation': 'apps.accounts.email.PasswordChangedConfirmationEmail',
+        'username_changed_confirmation': 'apps.accounts.email.UsernameChangedConfirmationEmail',
+        'username_reset': 'apps.accounts.email.UsernameResetEmail',
+        'username_reset_confirmation': 'apps.accounts.email.UsernameResetConfirmationEmail',
+    },
     'USER_ID_FIELD': 'id',
     'LOGIN_FIELD': 'email', # Usar email para login
     'PERMISSIONS': {
         'set_password': (
             'rest_framework.permissions.IsAuthenticated',
+        ),
+        'password_reset': (
+            'rest_framework.permissions.AllowAny',
         ),
     },
 }
@@ -189,6 +202,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SECRET_KEY = config('SECRET_KEY')
 DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY')
+
+EMAIL_BACKEND = config(
+    'EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend'
+)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='no-reply@example.com')
 
 AUTH_USER_MODEL = 'accounts.User'
 

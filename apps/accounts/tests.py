@@ -1,14 +1,14 @@
 # apps/accounts/tests.py
 
+import re
+
+from django.core import mail
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from apps.accounts.models import User, Profile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
-from unittest.mock import patch
-from rest_framework import status
-from django.urls import reverse
 
 
 
@@ -193,3 +193,51 @@ class AccountsAPITests(APITestCase):
 
         self.assertEqual(verify_response.status_code, status.HTTP_200_OK)
         self.assertEqual(verify_response.data, {})
+
+
+class PasswordResetFlowTests(APITestCase):
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_password_reset_flow_sends_email_and_confirms_new_password(self):
+        user = User.objects.create_user(
+            username='resetuser',
+            email='reset@example.com',
+            password='initialPassword123',
+        )
+
+        response = self.client.post(
+            '/api/accounts/auth/users/reset_password/',
+            {'email': user.email},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 1)
+
+        email_body = mail.outbox[0].body
+        match = re.search(
+            r'#/password/reset/confirm/(?P<uid>[^/]+)/(?P<token>[^\s/]+)',
+            email_body,
+        )
+        self.assertIsNotNone(match, 'Password reset e-mail should contain uid and token')
+
+        confirm_response = self.client.post(
+            '/api/accounts/auth/users/reset_password_confirm/',
+            {
+                'uid': match.group('uid'),
+                'token': match.group('token'),
+                'new_password': 'NewPassword456!',
+                're_new_password': 'NewPassword456!',
+            },
+            format='json',
+        )
+
+        self.assertEqual(confirm_response.status_code, status.HTTP_204_NO_CONTENT)
+
+        login_response = self.client.post(
+            reverse('jwt-create'),
+            {'email': user.email, 'password': 'NewPassword456!'},
+            format='json',
+        )
+
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', login_response.data)
