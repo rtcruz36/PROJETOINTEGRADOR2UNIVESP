@@ -40,13 +40,13 @@ ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 INSTALLED_APPS = [
     # MEUS APPS (PRIMEIRO)
     # O app que define o AUTH_USER_MODEL deve vir antes de 'django.contrib.auth'
-    'apps.accounts.apps.AccountsConfig',
-    'apps.core.apps.CoreConfig',
-    'apps.learning.apps.LearningConfig',
-    'apps.scheduling.apps.SchedulingConfig',
-    'apps.assessment.apps.AssessmentConfig',
-    'apps.studychat.apps.StudychatConfig',
-    'apps.analytics.apps.AnalyticsConfig',
+    'apps.accounts.AccountsConfig',
+    'apps.core.CoreConfig',
+    'apps.learning.LearningConfig',
+    'apps.scheduling.SchedulingConfig',
+    'apps.assessment.AssessmentConfig',
+    'apps.studychat.StudychatConfig',
+    'apps.analytics.AnalyticsConfig',
     'rest_framework',# Django Rest Framework
     'rest_framework.authtoken',# Djoser precisa deste
     'rest_framework_simplejwt.token_blacklist',
