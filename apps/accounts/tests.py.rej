@@ -1,0 +1,57 @@
+diff a/apps/accounts/tests.py b/apps/accounts/tests.py	(rejected hunks)
+@@ -88,25 +88,55 @@ class AccountsAPITests(APITestCase):
+         login_response = self.client.post(login_url, login_data, format='json')
+         
+         # Verificação 1: Login bem-sucedido
+         self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+         self.assertIn('access', login_response.data)
+         
+         # Ação 2: Usar o token para acessar o endpoint do perfil
+         token = login_response.data['access']
+         profile_url = reverse('user-profile')
+         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}') # Autentica o cliente
+         profile_response = self.client.get(profile_url)
+         
+         # Verificação 2: Acesso ao perfil bem-sucedido
+         self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
+         self.assertEqual(profile_response.data['bio'], '') # Bio inicial está vazia
+ 
+         # Ação 3: Atualizar o perfil
+         update_data = {"bio": "Sou um desenvolvedor Django."}
+         update_response = self.client.patch(profile_url, update_data, format='json')
+ 
+         # Verificação 3: Atualização bem-sucedida
+         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+         self.assertEqual(update_response.data['bio'], "Sou um desenvolvedor Django.")
+         user.profile.refresh_from_db() # Recarrega o perfil do banco
+         self.assertEqual(user.profile.bio, "Sou um desenvolvedor Django.")
++
++    def test_set_password_with_valid_token(self):
++        """Garante que um usuário autenticado pode alterar a própria senha."""
++
++        user = User.objects.create_user(
++            username='changepass',
++            email='changepass@example.com',
++            password='old_password123',
++        )
++
++        login_url = reverse('jwt-create')
++        login_data = {"email": "changepass@example.com", "password": "old_password123"}
++        login_response = self.client.post(login_url, login_data, format='json')
++        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
++
++        token = login_response.data['access']
++        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
++
++        url = reverse('user-set-password')
++        data = {
++            'current_password': 'old_password123',
++            'new_password': 'new_secure_password456',
++        }
++
++        response = self.client.put(url, data, format='json')
++
++        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
++
++        user.refresh_from_db()
++        self.assertTrue(user.check_password('new_secure_password456'))

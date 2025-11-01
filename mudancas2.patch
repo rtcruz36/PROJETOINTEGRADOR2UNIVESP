@@ -1,0 +1,174 @@
+diff --git a/apps/accounts/serializers.py b/apps/accounts/serializers.py
+index eb6e1cd472a9686103e00785399d4f27b919cdd6..0fc027b174dcb47393eba3a5b4b598849f9bdde2 100644
+--- a/apps/accounts/serializers.py
++++ b/apps/accounts/serializers.py
+@@ -1,33 +1,43 @@
+ # apps/accounts/serializers.py
+ 
+-from djoser.serializers import UserCreateSerializer as BaseUserCreateSerializer
+-from djoser.serializers import UserSerializer as BaseUserSerializer
++from djoser.serializers import (
++    SetPasswordSerializer as BaseSetPasswordSerializer,
++    UserCreateSerializer as BaseUserCreateSerializer,
++    UserSerializer as BaseUserSerializer,
++)
+ from rest_framework import serializers
+ from .models import Profile, User
+ 
+ class ProfileSerializer(serializers.ModelSerializer):
+     """
+     Serializador para o perfil do usuário.
+     """
+     class Meta:
+         model = Profile
+         fields = ['profile_picture', 'bio']
+ 
+ class UserSerializer(BaseUserSerializer):
+     """
+     Serializador para exibir os dados do usuário, incluindo o perfil.
+     """
+     profile = ProfileSerializer(read_only=True)
+ 
+     class Meta(BaseUserSerializer.Meta):
+         model = User
+         fields = ['id', 'email', 'username', 'first_name', 'last_name', 'profile']
+ 
+ class UserCreateSerializer(BaseUserCreateSerializer):
+     """
+     Serializador para a criação de novos usuários.
+     Garante que o campo de e-mail seja usado para o login.
+     """
+     class Meta(BaseUserCreateSerializer.Meta):
+         model = User
+         fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name']
++
++
++class SetPasswordSerializer(BaseSetPasswordSerializer):
++    """Serializador customizado para alterar a senha do usuário autenticado."""
++
++    # Caso validações extras sejam necessárias no futuro, elas podem ser adicionadas aqui.
++    pass
+diff --git a/apps/accounts/tests.py b/apps/accounts/tests.py
+index f5de3ca2c9f887e1a509cd75a252141bbf48d2aa..d3306b2e7a0404b8fdafb80a059c8e008ce87455 100644
+--- a/apps/accounts/tests.py
++++ b/apps/accounts/tests.py
+@@ -88,25 +88,55 @@ class AccountsAPITests(APITestCase):
+         login_response = self.client.post(login_url, login_data, format='json')
+         
+         # Verificação 1: Login bem-sucedido
+         self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+         self.assertIn('access', login_response.data)
+         
+         # Ação 2: Usar o token para acessar o endpoint do perfil
+         token = login_response.data['access']
+         profile_url = reverse('user-profile')
+         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}') # Autentica o cliente
+         profile_response = self.client.get(profile_url)
+         
+         # Verificação 2: Acesso ao perfil bem-sucedido
+         self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
+         self.assertEqual(profile_response.data['bio'], '') # Bio inicial está vazia
+ 
+         # Ação 3: Atualizar o perfil
+         update_data = {"bio": "Sou um desenvolvedor Django."}
+         update_response = self.client.patch(profile_url, update_data, format='json')
+ 
+         # Verificação 3: Atualização bem-sucedida
+         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+         self.assertEqual(update_response.data['bio'], "Sou um desenvolvedor Django.")
+         user.profile.refresh_from_db() # Recarrega o perfil do banco
+         self.assertEqual(user.profile.bio, "Sou um desenvolvedor Django.")
++
++    def test_set_password_with_valid_token(self):
++        """Garante que um usuário autenticado pode alterar a própria senha."""
++
++        user = User.objects.create_user(
++            username='changepass',
++            email='changepass@example.com',
++            password='old_password123',
++        )
++
++        login_url = reverse('jwt-create')
++        login_data = {"email": "changepass@example.com", "password": "old_password123"}
++        login_response = self.client.post(login_url, login_data, format='json')
++        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
++
++        token = login_response.data['access']
++        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
++
++        url = reverse('user-set-password')
++        data = {
++            'current_password': 'old_password123',
++            'new_password': 'new_secure_password456',
++        }
++
++        response = self.client.put(url, data, format='json')
++
++        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
++
++        user.refresh_from_db()
++        self.assertTrue(user.check_password('new_secure_password456'))
+diff --git a/config/settings.py b/config/settings.py
+index 9f1e3afb12da1531aaca9fc1f8c7375a3631bfcf..2b05904354a40bccf0f27b5270be8a537dd25fff 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -112,53 +112,59 @@ REST_FRAMEWORK = {
+         'rest_framework.permissions.IsAuthenticated',
+     ),
+     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+ }
+ 
+ # Configuração do Simple JWT
+ from datetime import timedelta
+ 
+ SIMPLE_JWT = {
+     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # Duração do token de acesso (curto)
+     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # Duração do token de refresh (longo)
+     'ROTATE_REFRESH_TOKENS': True, # Opcional: gera um novo refresh token a cada uso
+     'BLACKLIST_AFTER_ROTATION': True, # Opcional: invalida o refresh token antigo
+ }
+ 
+ # Configuração do Djoser
+ DJOSER = {
+     'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
+     'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
+     'ACTIVATION_URL': '#/activate/{uid}/{token}',
+     'SEND_ACTIVATION_EMAIL': False,  # Mude para True se quiser confirmação por e-mail
+     'SERIALIZERS': {
+         'user_create': 'apps.accounts.serializers.UserCreateSerializer',
+         'user': 'apps.accounts.serializers.UserSerializer',
+         'current_user': 'apps.accounts.serializers.UserSerializer',
++        'set_password': 'apps.accounts.serializers.SetPasswordSerializer',
+     },
+     'USER_ID_FIELD': 'id',
+     'LOGIN_FIELD': 'email', # Usar email para login
++    'PERMISSIONS': {
++        'set_password': (
++            'rest_framework.permissions.IsAuthenticated',
++        ),
++    },
+ }
+ 
+ # Password validation
+ # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+ 
+ AUTH_PASSWORD_VALIDATORS = [
+     {
+         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+     },
+     {
+         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+     },
+     {
+         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+     },
+     {
+         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+     },
+ ]
+ 
+ 
+ # Internationalization
+ # https://docs.djangoproject.com/en/5.2/topics/i18n/
+ 
+ LANGUAGE_CODE = 'en-us'

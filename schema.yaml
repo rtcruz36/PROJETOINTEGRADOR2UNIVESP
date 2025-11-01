@@ -12,6 +12,7 @@ paths:
         token pair to prove the authentication of those credentials.
       tags:
       - api
+      - Autenticação JWT
       requestBody:
         content:
           application/json:
@@ -39,6 +40,7 @@ paths:
         token if the refresh token is valid.
       tags:
       - api
+      - Autenticação JWT
       requestBody:
         content:
           application/json:
@@ -58,14 +60,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenRefresh'
           description: ''
-  /api/accounts/auth/jwt/verify/:
-    post:
-      operationId: api_accounts_auth_jwt_verify_create
-      description: |-
-        Takes a token and indicates if it is valid.  This view provides no
-        information about a token's fitness for a particular use.
-      tags:
-      - api
+    /api/accounts/auth/jwt/verify/:
+      post:
+        operationId: api_accounts_auth_jwt_verify_create
+        description: |-
+          Takes a token and indicates if it is valid.  This view provides no
+          information about a token's fitness for a particular use.
+        tags:
+        - api
+        - Autenticação JWT
       requestBody:
         content:
           application/json:

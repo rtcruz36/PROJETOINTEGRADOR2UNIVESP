@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.analytics.apps.AnalyticsConfig',
     'rest_framework',# Django Rest Framework
     'rest_framework.authtoken',# Djoser precisa deste
+    'rest_framework_simplejwt.token_blacklist',
     'djoser',
 
     # APPS PADRÃO DO DJANGO (DEPOIS)
@@ -134,9 +135,15 @@ DJOSER = {
         'user_create': 'apps.accounts.serializers.UserCreateSerializer',
         'user': 'apps.accounts.serializers.UserSerializer',
         'current_user': 'apps.accounts.serializers.UserSerializer',
+        'set_password': 'apps.accounts.serializers.SetPasswordSerializer',
     },
     'USER_ID_FIELD': 'id',
     'LOGIN_FIELD': 'email', # Usar email para login
+    'PERMISSIONS': {
+        'set_password': (
+            'rest_framework.permissions.IsAuthenticated',
+        ),
+    },
 }
 
 # Password validation
@@ -208,7 +215,36 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'StudyPlatform API',
     'DESCRIPTION': 'Documentação da API para a plataforma de estudos StudyPlatform',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False, # Exclui o endpoint /schema/ da interface Swagger
+    'SERVE_INCLUDE_SCHEMA': False,  # Exclui o endpoint /schema/ da interface Swagger
+    'TAGS': [
+        {
+            'name': 'Autenticação JWT',
+            'description': 'Fluxos de renovação e verificação de tokens JWT fornecidos pelo Djoser/Simple JWT.',
+        },
+    ],
+    'POSTPROCESSING_HOOKS': [
+        'config.openapi_hooks.add_jwt_highlight_to_schema',
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'docExpansion': 'list',
+        'defaultModelsExpandDepth': -1,
+        'persistAuthorization': True,
+        'displayRequestDuration': True,
+        'filter': True,
+        'tagsSorter': 'alpha',
+        'operationsSorter': 'alpha',
+    },
+    'REDOC_SETTINGS': {
+        'hideDownloadButton': True,
+        'expandResponses': '200,201',
+        'tagGroups': [
+            {
+                'name': 'Fluxos de Autenticação',
+                'tags': ['Autenticação JWT'],
+            },
+        ],
+    },
     # Adicione mais configurações aqui conforme necessário
     # https://drf-spectacular.readthedocs.io/en/latest/settings.html
 }

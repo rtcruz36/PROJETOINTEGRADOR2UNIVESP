@@ -1,7 +1,10 @@
 # apps/accounts/serializers.py
 
-from djoser.serializers import UserCreateSerializer as BaseUserCreateSerializer
-from djoser.serializers import UserSerializer as BaseUserSerializer
+from djoser.serializers import (
+    SetPasswordSerializer as BaseSetPasswordSerializer,
+    UserCreateSerializer as BaseUserCreateSerializer,
+    UserSerializer as BaseUserSerializer,
+)
 from rest_framework import serializers
 from .models import Profile, User
 
@@ -31,3 +34,10 @@ class UserCreateSerializer(BaseUserCreateSerializer):
     class Meta(BaseUserCreateSerializer.Meta):
         model = User
         fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name']
+
+
+class SetPasswordSerializer(BaseSetPasswordSerializer):
+    """Serializador customizado para alterar a senha do usuário autenticado."""
+
+    # Caso validações extras sejam necessárias no futuro, elas podem ser adicionadas aqui.
+    pass
