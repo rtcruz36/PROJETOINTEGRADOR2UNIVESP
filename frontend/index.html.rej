@@ -1,0 +1,53 @@
+diff a/frontend/index.html b/frontend/index.html	(rejected hunks)
+@@ -1,50 +1,51 @@
+ <!DOCTYPE html>
+ <html lang="pt-BR">
+ <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Assistente de Estudos - Dashboard</title>
+     <link rel="stylesheet" href="styles/dashboard.css" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+         rel="stylesheet"
+     />
+ </head>
+ <body data-api-base="http://localhost:8000/api">
+     <div class="app-shell">
+         <header class="app-header">
+             <div class="logo-area">
+                 <div class="logo">PI2</div>
+                 <div class="header-text">
+                     <h1>Assistente de Estudos</h1>
+                     <p>Resumo inteligente do seu progresso acadêmico</p>
+                 </div>
+             </div>
+             <div class="user-actions">
++                <a class="ghost-button ghost-button--small" href="study.html">Modo foco</a>
+                 <span id="user-greeting" class="user-greeting">Olá!</span>
+                 <button id="logout-button" class="ghost-button" type="button">Sair</button>
+             </div>
+         </header>
+ 
+         <main class="content-area">
+             <section class="summary-cards" aria-label="Resumo do aprendizado">
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">📚</span>
+                     <div>
+                         <h2>Total de Cursos</h2>
+                         <p id="courses-count" class="summary-value">--</p>
+                     </div>
+                 </article>
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">🧠</span>
+                     <div>
+                         <h2>Tópicos em andamento</h2>
+                         <p id="topics-in-progress" class="summary-value">--</p>
+                     </div>
+                 </article>
+                 <article class="summary-card">
+                     <span class="summary-icon" aria-hidden="true">✅</span>
+                     <div>
+                         <h2>Quizzes concluídos</h2>

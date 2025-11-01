@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistente de Estudos - Modo Foco</title>
+    <link rel="stylesheet" href="styles/dashboard.css" />
+    <link rel="stylesheet" href="styles/study.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+</head>
+<body data-api-base="http://localhost:8000/api">
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo">PI2</div>
+                <div class="header-text">
+                    <h1>Assistente de Estudos</h1>
+                    <p>Modo foco para aprofundar nos seus subtópicos</p>
+                </div>
+            </div>
+            <div class="study-nav">
+                <a class="ghost-button ghost-button--small" href="index.html">⬅ Voltar ao dashboard</a>
+                <span id="user-greeting" class="user-greeting">Olá!</span>
+                <button id="logout-button" class="ghost-button ghost-button--small" type="button">Sair</button>
+            </div>
+        </header>
+
+        <main class="study-layout">
+            <section class="panel focus-panel" aria-label="Modo foco do subtópico selecionado">
+                <header>
+                    <span class="panel-subtitle">Estudo guiado</span>
+                    <h2 id="focus-topic-title">Selecione um tópico para começar</h2>
+                    <p id="focus-progress" class="panel-subtitle"></p>
+                </header>
+                <div class="focus-controls">
+                    <div class="focus-main">
+                        <div class="focus-breadcrumbs">
+                            <label class="focus-field" for="topic-selector">
+                                <span>Tópico</span>
+                                <select id="topic-selector" class="focus-select" aria-label="Selecionar tópico"></select>
+                            </label>
+                            <label class="focus-field" for="subtopic-selector">
+                                <span>Subtópico</span>
+                                <select id="subtopic-selector" class="focus-select" aria-label="Selecionar subtópico"></select>
+                            </label>
+                        </div>
+                        <article class="focus-subtopic" aria-live="polite">
+                            <h3 id="focus-subtopic-title">Nenhum subtópico selecionado</h3>
+                            <p id="focus-subtopic-details" class="focus-subtopic-details"></p>
+                        </article>
+                        <div class="focus-actions">
+                            <button id="prev-subtopic" class="ghost-button ghost-button--small" type="button">Anterior</button>
+                            <button id="mark-complete" class="primary-button" type="button">Marcar como concluído</button>
+                            <button id="next-subtopic" class="ghost-button ghost-button--small" type="button">Próximo</button>
+                        </div>
+                    </div>
+                    <aside class="focus-timer" aria-live="polite">
+                        <h3>Timer de foco</h3>
+                        <p id="timer-status" class="timer-status">Pronto para começar</p>
+                        <div class="timer-display" role="timer" aria-live="assertive" aria-atomic="true">
+                            <span id="timer-output">25:00</span>
+                        </div>
+                        <div class="timer-actions">
+                            <button id="timer-start" class="primary-button" type="button">Iniciar</button>
+                            <button id="timer-pause" class="ghost-button ghost-button--small" type="button">Pausar</button>
+                            <button id="timer-reset" class="ghost-button ghost-button--small" type="button">Reiniciar</button>
+                        </div>
+                        <label class="focus-field" for="timer-duration">
+                            <span>Duração padrão (min)</span>
+                            <input id="timer-duration" type="number" min="5" max="120" value="25" />
+                        </label>
+                        <p class="timer-note">
+                            Dica: ao salvar uma nota rápida, usaremos o tempo registrado aqui.
+                        </p>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="panel subtopics-panel" aria-label="Lista de subtópicos">
+                <header>
+                    <h2>Subtópicos do tópico selecionado</h2>
+                    <span id="subtopics-summary" class="panel-subtitle"></span>
+                </header>
+                <ul id="subtopics-list" class="subtopics-list"></ul>
+            </section>
+
+            <section class="panel notes-panel" aria-label="Notas rápidas do estudo">
+                <header>
+                    <h2>Notas rápidas</h2>
+                    <span class="panel-subtitle">Registre percepções importantes da sessão</span>
+                </header>
+                <form id="quick-note-form" class="note-form">
+                    <div class="note-fields">
+                        <label class="focus-field" for="note-minutes">
+                            <span>Minutos estudados</span>
+                            <input id="note-minutes" name="minutes" type="number" min="1" value="25" required />
+                        </label>
+                        <label class="focus-field" for="note-content">
+                            <span>Anotações</span>
+                            <textarea id="note-content" name="content" rows="3" placeholder="Resumo da sessão, dúvidas ou próximos passos" required></textarea>
+                        </label>
+                    </div>
+                    <div class="note-actions">
+                        <button class="primary-button" type="submit">Salvar nota</button>
+                        <p id="note-feedback" class="form-feedback" role="status"></p>
+                    </div>
+                </form>
+                <ul id="notes-list" class="notes-list" aria-live="polite"></ul>
+            </section>
+
+            <section class="panel chat-panel" aria-label="Chat de dúvidas com o StudyBot">
+                <header>
+                    <h2>Chat de dúvidas contextual</h2>
+                    <span class="panel-subtitle">Converse com o StudyBot usando o contexto do tópico atual</span>
+                </header>
+                <div id="chat-messages" class="chat-messages" aria-live="polite" aria-busy="false"></div>
+                <form id="chat-form" class="chat-form">
+                    <label class="focus-field" for="chat-input">
+                        <span>Sua pergunta</span>
+                        <textarea id="chat-input" rows="3" placeholder="Digite uma dúvida ou peça uma explicação" required></textarea>
+                    </label>
+                    <div class="chat-actions">
+                        <span id="chat-status" class="form-feedback" role="status"></span>
+                        <button class="primary-button" type="submit">Enviar</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true">
+        <form id="login-form" class="login-card">
+            <h2>Entrar</h2>
+            <p>Acesse sua conta para iniciar o modo foco.</p>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="seu-email@exemplo.com" />
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
+            <button type="submit" class="primary-button">Entrar</button>
+            <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+    </div>
+
+    <template id="chat-message-template">
+        <article class="chat-message">
+            <header class="chat-message-header">
+                <span class="chat-author"></span>
+                <time class="chat-timestamp"></time>
+            </header>
+            <p class="chat-content"></p>
+        </article>
+    </template>
+
+    <script src="js/study.js" type="module"></script>
+</body>
+</html>

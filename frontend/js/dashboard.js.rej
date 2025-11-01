@@ -1,0 +1,62 @@
+diff a/frontend/js/dashboard.js b/frontend/js/dashboard.js	(rejected hunks)
+@@ -869,50 +869,60 @@ function renderCourseTopics(course) {
+             subtopicsList.appendChild(emptyItem);
+         } else {
+             topic.subtopics.forEach((subtopic) => {
+                 const item = document.createElement('li');
+                 item.className = 'course-subtopic';
+ 
+                 const checkbox = document.createElement('input');
+                 checkbox.type = 'checkbox';
+                 checkbox.checked = Boolean(subtopic.is_completed);
+                 checkbox.disabled = true;
+                 const checkboxId = `topic-${topic.id}-subtopic-${subtopic.id}`;
+                 checkbox.id = checkboxId;
+                 item.appendChild(checkbox);
+ 
+                 const labelNode = document.createElement('label');
+                 labelNode.setAttribute('for', checkboxId);
+                 labelNode.textContent = subtopic.title;
+ 
+                 if (subtopic.details) {
+                     const details = document.createElement('span');
+                     details.textContent = subtopic.details;
+                     labelNode.appendChild(details);
+                 }
+ 
+                 item.appendChild(labelNode);
++
++                const actions = document.createElement('div');
++                actions.className = 'course-subtopic-actions';
++                const focusLink = document.createElement('a');
++                focusLink.className = 'ghost-button ghost-button--small';
++                focusLink.href = `study.html?topicId=${topic.id}&subtopicId=${subtopic.id}`;
++                focusLink.textContent = 'Estudar';
++                actions.appendChild(focusLink);
++                item.appendChild(actions);
++
+                 subtopicsList.appendChild(item);
+             });
+         }
+ 
+         container.appendChild(subtopicsList);
+         fragment.appendChild(container);
+     });
+ 
+     selectors.courseTopicsList.appendChild(fragment);
+ 
+     const selectedTopic = topics.find((topic) => topic.id === state.selectedTopicId) || topics[0];
+     selectors.courseSelectedTopic.textContent = selectedTopic
+         ? `Cronograma focado no tópico: ${selectedTopic.title}`
+         : 'Nenhum tópico selecionado';
+ 
+     if (selectors.generateScheduleButton) {
+         selectors.generateScheduleButton.disabled = !selectedTopic || !selectedTopic.totalSubtopics;
+     }
+ }
+ 
+ function handleTopicSelection(topicId) {
+     if (state.selectedTopicId === topicId) {
+         return;
+     }
+     state.selectedTopicId = topicId;

@@ -891,6 +891,16 @@ function renderCourseTopics(course) {
                 }
 
                 item.appendChild(labelNode);
+
+                const actions = document.createElement('div');
+                actions.className = 'course-subtopic-actions';
+                const focusLink = document.createElement('a');
+                focusLink.className = 'ghost-button ghost-button--small';
+                focusLink.href = `study.html?topicId=${topic.id}&subtopicId=${subtopic.id}`;
+                focusLink.textContent = 'Estudar';
+                actions.appendChild(focusLink);
+                item.appendChild(actions);
+
                 subtopicsList.appendChild(item);
             });
         }

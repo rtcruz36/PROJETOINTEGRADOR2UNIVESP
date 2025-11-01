@@ -1,0 +1,143 @@
+diff a/frontend/styles/dashboard.css b/frontend/styles/dashboard.css	(rejected hunks)
+@@ -83,50 +83,56 @@ body {
+     align-items: center;
+     gap: 1rem;
+     color: var(--text-muted);
+ }
+ 
+ .user-greeting {
+     font-weight: 600;
+ }
+ 
+ .ghost-button {
+     border: 1px solid transparent;
+     background: var(--primary-muted);
+     color: var(--primary-dark);
+     padding: 0.65rem 1.2rem;
+     border-radius: 12px;
+     font-weight: 600;
+     cursor: pointer;
+     transition: transform 120ms ease, box-shadow 120ms ease;
+ }
+ 
+ .ghost-button:hover {
+     transform: translateY(-1px);
+     box-shadow: 0 10px 20px -12px rgba(76, 110, 245, 0.6);
+ }
+ 
++.ghost-button--small {
++    padding: 0.45rem 0.9rem;
++    border-radius: 10px;
++    font-size: 0.9rem;
++}
++
+ .content-area {
+     display: flex;
+     flex-direction: column;
+     gap: 1.5rem;
+ }
+ 
+ .summary-cards {
+     display: grid;
+     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+     gap: 1rem;
+ }
+ 
+ .summary-card {
+     background: var(--surface);
+     border-radius: 16px;
+     padding: 1.5rem;
+     border: 1px solid var(--border);
+     display: flex;
+     align-items: center;
+     gap: 1.25rem;
+     box-shadow: var(--shadow);
+ }
+ 
+ .summary-icon {
+     width: 3rem;
+@@ -482,71 +488,84 @@ body {
+     font-size: 0.9rem;
+ }
+ 
+ .course-topic--active {
+     border-color: rgba(76, 110, 245, 0.45);
+     box-shadow: 0 14px 26px -18px rgba(76, 110, 245, 0.55);
+     background: white;
+ }
+ 
+ .course-topic--active .course-topic-header {
+     background: rgba(76, 110, 245, 0.08);
+ }
+ 
+ .course-subtopics {
+     list-style: none;
+     display: flex;
+     flex-direction: column;
+     gap: 0.65rem;
+     padding: 0 1.25rem 1.25rem;
+ }
+ 
+ .course-subtopic {
+     display: flex;
+     align-items: flex-start;
+     gap: 0.75rem;
++    justify-content: space-between;
+ }
+ 
+ .course-subtopic input[type='checkbox'] {
+     width: 1.1rem;
+     height: 1.1rem;
+     margin-top: 0.15rem;
+     accent-color: var(--primary);
+ }
+ 
+ .course-subtopic label {
+     display: flex;
+     flex-direction: column;
+     gap: 0.2rem;
+     font-size: 0.95rem;
++    flex: 1;
+ }
+ 
+ .course-subtopic label span {
+     color: var(--text-muted);
+     font-size: 0.85rem;
+ }
+ 
++.course-subtopic-actions {
++    display: flex;
++    align-items: center;
++    gap: 0.5rem;
++    flex-shrink: 0;
++}
++
++.course-subtopic-actions .ghost-button {
++    white-space: nowrap;
++}
++
+ .course-detail-actions {
+     display: flex;
+     flex-wrap: wrap;
+     align-items: center;
+     gap: 0.85rem;
+ }
+ 
+ .course-detail-feedback {
+     font-size: 0.9rem;
+     color: var(--text-muted);
+     min-height: 1.2rem;
+ }
+ 
+ .course-detail-feedback[data-status='success'] {
+     color: var(--success);
+ }
+ 
+ .course-detail-feedback[data-status='error'] {
+     color: var(--danger);
+ }
+ 
+ .course-detail-feedback[data-status='loading'] {
+     color: var(--primary-dark);
+ }
+ 
