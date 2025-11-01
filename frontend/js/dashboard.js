@@ -1,5 +1,6 @@
 const API_BASE_URL = (document.body.dataset.apiBase || 'http://localhost:8000/api').replace(/\/$/, '');
 const STORAGE_KEY = 'pi2-dashboard-auth';
+const SCHEDULE_STORAGE_KEY = 'pi2-generated-schedule';
 
 const selectors = {
     loginOverlay: document.getElementById('login-overlay'),
@@ -1167,7 +1168,15 @@ async function handleGenerateScheduleClick() {
             pieces.push(`${daysWithStudy} dia(s) com sessões planejadas.`);
         }
 
-        setScheduleFeedback('success', pieces.join(' '));
+        setScheduleFeedback('success', `${pieces.join(' ')} Abrindo cronograma detalhado...`);
+        persistGeneratedSchedule(response);
+
+        const topicId = response?.topic?.id ?? topic.id;
+        if (topicId) {
+            window.location.href = `schedule.html?topicId=${encodeURIComponent(topicId)}`;
+        } else {
+            console.warn('Cronograma gerado sem topic_id. A página detalhada não será aberta automaticamente.');
+        }
     } catch (error) {
         console.error('Erro ao gerar cronograma:', error);
         setScheduleFeedback('error', error.message || 'Não foi possível gerar o cronograma.');
@@ -1176,6 +1185,25 @@ async function handleGenerateScheduleClick() {
             button.disabled = false;
             button.textContent = originalLabel || 'Gerar cronograma de estudo';
         }
+    }
+}
+
+function persistGeneratedSchedule(schedulePayload) {
+    if (!schedulePayload) {
+        return;
+    }
+
+    const topicId = schedulePayload?.topic?.id ?? null;
+
+    try {
+        const storedValue = {
+            schedule: schedulePayload,
+            topicId,
+            savedAt: new Date().toISOString(),
+        };
+        sessionStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(storedValue));
+    } catch (error) {
+        console.warn('Não foi possível armazenar o cronograma gerado:', error);
     }
 }
 
