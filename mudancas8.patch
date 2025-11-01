@@ -1,0 +1,414 @@
+diff --git a/apps/assessment/serializers.py b/apps/assessment/serializers.py
+index a193bdf6702ac9a316b0f39f0e35d193fbc13916..6a8e1921aff9cb3292be46b6210934f008b3afb3 100644
+--- a/apps/assessment/serializers.py
++++ b/apps/assessment/serializers.py
+@@ -1,78 +1,151 @@
+ # apps/assessment/serializers.py
+ 
+ from rest_framework import serializers
+-from django.db import transaction
+-
+ from .models import Quiz, Question, Attempt, Answer
+ from apps.learning.models import Topic
+ 
+ # --- Serializadores para Apresentação de Dados (Leitura) ---
+ class QuestionSerializer(serializers.ModelSerializer):
+     """Serializador para exibir uma Pergunta (sem a resposta correta)."""
+     class Meta:
+         model = Question
+         # Excluímos 'correct_answer' e 'explanation' para não entregar a resposta ao usuário antes da hora.
+         fields = ['id', 'question_text', 'choices', 'difficulty']
+ 
++
++class QuestionManageSerializer(serializers.ModelSerializer):
++    """Serializador utilizado para criação e edição de perguntas manualmente."""
++
++    class Meta:
++        model = Question
++        fields = [
++            'id',
++            'quiz',
++            'subtopic',
++            'question_text',
++            'choices',
++            'correct_answer',
++            'difficulty',
++            'explanation',
++        ]
++
++    def validate_quiz(self, value):
++        request = self.context.get('request')
++        if request and value.topic.course.user != request.user:
++            raise serializers.ValidationError("Você não tem permissão para alterar este quiz.")
++        return value
++
++    def validate_subtopic(self, value):
++        if not value:
++            return value
++        request = self.context.get('request')
++        if request and value.topic.course.user != request.user:
++            raise serializers.ValidationError("Você não tem permissão para usar este subtópico.")
++        return value
++
++    def validate(self, attrs):
++        choices = attrs.get('choices', getattr(self.instance, 'choices', None))
++        correct_answer = attrs.get('correct_answer', getattr(self.instance, 'correct_answer', None))
++        quiz = attrs.get('quiz', getattr(self.instance, 'quiz', None))
++        subtopic = attrs.get('subtopic', getattr(self.instance, 'subtopic', None))
++
++        if choices is None or not isinstance(choices, dict):
++            raise serializers.ValidationError({
++                'choices': 'As opções de resposta devem ser um objeto JSON com as chaves das alternativas.'
++            })
++
++        if correct_answer and correct_answer not in choices:
++            raise serializers.ValidationError({
++                'correct_answer': 'A resposta correta precisa corresponder a uma das chaves em "choices".'
++            })
++
++        if quiz and subtopic and subtopic.topic_id != quiz.topic_id:
++            raise serializers.ValidationError({
++                'subtopic': 'O subtópico selecionado precisa pertencer ao mesmo tópico do quiz.'
++            })
++
++        return super().validate(attrs)
++
+ class AnswerDetailSerializer(serializers.ModelSerializer):
+     """Serializador para mostrar os detalhes de uma resposta dada pelo usuário."""
+     question = QuestionSerializer(read_only=True)
+ 
+     class Meta:
+         model = Answer
+         fields = ['question', 'user_answer', 'is_correct']
+ 
+ class AttemptDetailSerializer(serializers.ModelSerializer):
+     """Serializador para mostrar o resultado detalhado de uma tentativa."""
+     answers = AnswerDetailSerializer(many=True, read_only=True)
+     quiz_title = serializers.CharField(source='quiz.title', read_only=True)
+ 
+     class Meta:
+         model = Attempt
+         fields = [
+             'id', 
+             'quiz',
+             'quiz_title',
+             'score', 
+             'correct_answers_count', 
+             'incorrect_answers_count', 
+             'completed_at', 
+             'answers'
+         ]
+ 
+ class QuizDetailSerializer(serializers.ModelSerializer):
+     """Serializador para exibir um Quiz com todas as suas perguntas."""
+     questions = QuestionSerializer(many=True, read_only=True)
+     topic_title = serializers.CharField(source='topic.title', read_only=True)
+ 
+     class Meta:
+         model = Quiz
+         fields = ['id', 'topic', 'topic_title', 'title', 'description', 'total_questions', 'created_at', 'questions']
+ 
+ # --- Serializadores para Entrada de Dados (Escrita) ---
+ 
++class QuizWriteSerializer(serializers.ModelSerializer):
++    """Serializador utilizado para criação e edição manual de quizzes."""
++
++    class Meta:
++        model = Quiz
++        fields = ['id', 'topic', 'title', 'description']
++
++    def validate_topic(self, value):
++        request = self.context.get('request')
++        if request and value.course.user != request.user:
++            raise serializers.ValidationError("Você não tem permissão para utilizar este tópico.")
++        return value
++
++    def update(self, instance, validated_data):
++        topic = validated_data.get('topic')
++        if topic and topic != instance.topic:
++            request = self.context.get('request')
++            if request and topic.course.user != request.user:
++                raise serializers.ValidationError("Você não tem permissão para utilizar este tópico.")
++        return super().update(instance, validated_data)
++
+ class QuizGenerationSerializer(serializers.Serializer):
+     """
+     Valida a entrada para a geração de um novo quiz. Não está ligado a um modelo.
+     """
+     topic_id = serializers.IntegerField(
+         required=True, 
+         help_text="O ID do Tópico para o qual o quiz será gerado."
+     )
+     num_easy = serializers.IntegerField(default=7, min_value=0)
+     num_moderate = serializers.IntegerField(default=7, min_value=0)
+     num_hard = serializers.IntegerField(default=6, min_value=0)
+ 
+     def validate_topic_id(self, value):
+         """Verifica se o Topic existe e pertence ao usuário."""
+         try:
+             user = self.context['request'].user
+             topic = Topic.objects.get(id=value, course__user=user)
+             return topic  # Retorna o objeto Topic, não o ID
+         except Topic.DoesNotExist:
+             raise serializers.ValidationError("Tópico não encontrado ou não pertence a você.")
+ 
+     def validate(self, data):
+         """Validação customizada para garantir pelo menos uma pergunta."""
+         total_questions = data['num_easy'] + data['num_moderate'] + data['num_hard']
+         if total_questions == 0:
+diff --git a/apps/assessment/urls.py b/apps/assessment/urls.py
+index 135013ffa44aa48a42baa9d5217628b91243f306..aeea95f671a0aff7c4c4c6f461b785194ad4810a 100644
+--- a/apps/assessment/urls.py
++++ b/apps/assessment/urls.py
+@@ -1,20 +1,22 @@
+ # apps/assessment/urls.py
+ 
+ from django.urls import path, include
+ from rest_framework.routers import DefaultRouter
+ from .views import (
+     GenerateQuizView,
+     SubmitAttemptAPIView,
+     QuizViewSet,
+-    AttemptViewSet
++    AttemptViewSet,
++    QuestionViewSet,
+ )
+ 
+ router = DefaultRouter()
+ router.register(r'quizzes', QuizViewSet, basename='quiz')
+ router.register(r'attempts', AttemptViewSet, basename='attempt')
++router.register(r'questions', QuestionViewSet, basename='question')
+ 
+ urlpatterns = [
+     path('generate-quiz/', GenerateQuizView.as_view(), name='generate-quiz'),
+     path('submit-attempt/', SubmitAttemptAPIView.as_view(), name='submit-attempt'),
+     path('', include(router.urls)),
+ ]
+diff --git a/apps/assessment/views.py b/apps/assessment/views.py
+index b08be01807939461c81683c4410ed11db51c2872..5a0e8c5039b6cd118b7dd32b09afad2b50b765e9 100644
+--- a/apps/assessment/views.py
++++ b/apps/assessment/views.py
+@@ -1,41 +1,45 @@
+ # apps/assessment/views.py
+-import json
+-from rest_framework import viewsets, status, generics
+-from rest_framework.views import APIView
+-from rest_framework.response import Response
+-from rest_framework.permissions import IsAuthenticated
+-from django.db import transaction
+-from django.shortcuts import get_object_or_404
+ import logging
++
+ import requests
++from django.db import transaction
++from django.db.models import Avg
++from rest_framework import viewsets, status, generics
++from rest_framework.decorators import action
++from rest_framework.permissions import IsAuthenticated
++from rest_framework.response import Response
++from rest_framework.views import APIView
++
+ from .models import Quiz, Question, Attempt, Answer
+ from .serializers import (
+-    QuizDetailSerializer, 
++    QuizDetailSerializer,
+     AttemptDetailSerializer,
+     QuizGenerationSerializer,
+-    AttemptSubmissionSerializer
++    AttemptSubmissionSerializer,
++    QuizWriteSerializer,
++    QuestionManageSerializer,
+ )
+ from apps.core.services import deepseek_service
+ from apps.learning.models import Topic
+ from requests.exceptions import Timeout
+ 
+ logger = logging.getLogger(__name__)
+ 
+ class GenerateQuizView(APIView):
+     permission_classes = [IsAuthenticated]
+     
+     def post(self, request):
+         try:
+             # Validar dados de entrada
+             serializer = QuizGenerationSerializer(data=request.data, context={'request': request})
+             if not serializer.is_valid():
+                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+             
+             validated_data = serializer.validated_data
+             topic = validated_data['topic_id']  # Agora é o objeto Topic
+             num_easy = validated_data.get('num_easy', 7)
+             num_moderate = validated_data.get('num_moderate', 7)
+             num_hard = validated_data.get('num_hard', 6)
+             
+             # Chamar serviço de IA
+             quiz_data = deepseek_service.gerar_quiz_completo(
+@@ -180,57 +184,156 @@ class SubmitAttemptAPIView(generics.GenericAPIView):
+                             is_correct=is_correct
+                         )
+                     )
+                 
+                 # 7. Salva todas as respostas de uma vez
+                 Answer.objects.bulk_create(answers_to_create)
+ 
+                 # 8. Atualiza a pontuação da tentativa
+                 total_questions = len(questions)
+                 attempt.correct_answers_count = correct_count
+                 attempt.incorrect_answers_count = total_questions - correct_count
+                 attempt.score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
+                 attempt.save()
+ 
+             # 9. Retorna a tentativa criada
+             response_serializer = AttemptDetailSerializer(attempt)
+             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+ 
+         except Exception as e:
+             return Response(
+                 {"error": f"Erro ao processar tentativa: {str(e)}"}, 
+                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+             )
+ 
+ 
+-class QuizViewSet(viewsets.ReadOnlyModelViewSet):
+-    """
+-    API para listar e ver detalhes dos Quizzes disponíveis.
+-    - GET /api/assessment/quizzes/
+-    - GET /api/assessment/quizzes/{id}/
+-    """
++def _refresh_total_questions(quiz: Quiz):
++    """Atualiza o total de perguntas registrado no quiz."""
++    quiz.total_questions = quiz.questions.count()
++    quiz.save(update_fields=['total_questions'])
++
++
++class QuizViewSet(viewsets.ModelViewSet):
++    """API para listar, editar, criar e remover quizzes."""
++
+     queryset = Quiz.objects.all()
+-    serializer_class = QuizDetailSerializer
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+-        """Filtra para mostrar apenas quizzes de tópicos do usuário."""
+-        return self.queryset.filter(
++        queryset = self.queryset.filter(
+             topic__course__user=self.request.user
+         ).select_related('topic').prefetch_related('questions')
+ 
++        topic_id = self.request.query_params.get('topic')
++        if topic_id:
++            queryset = queryset.filter(topic_id=topic_id)
++
++        return queryset
++
++    def get_serializer_class(self):
++        if self.action in ['list', 'retrieve', 'retry', 'recommended']:
++            return QuizDetailSerializer
++        return QuizWriteSerializer
++
++    def get_serializer_context(self):
++        context = super().get_serializer_context()
++        context['request'] = self.request
++        return context
++
++    def perform_create(self, serializer):
++        quiz = serializer.save()
++        _refresh_total_questions(quiz)
++
++    def perform_update(self, serializer):
++        quiz = serializer.save()
++        _refresh_total_questions(quiz)
++
++    def perform_destroy(self, instance):
++        instance.delete()
++
++    @action(detail=True, methods=['post'], url_path='retry')
++    def retry(self, request, pk=None):
++        """Permite refazer um quiz específico."""
++        quiz = self.get_object()
++        serializer = QuizDetailSerializer(quiz, context={'request': request})
++
++        message = "Quiz pronto para ser refeito."
++        last_attempt = quiz.attempts.filter(user=request.user).order_by('-completed_at').first()
++        if last_attempt:
++            message = "Você já tentou este quiz. Que tal revisar as explicações e tentar novamente?"
++
++        return Response({'quiz': serializer.data, 'message': message})
++
++    @action(detail=False, methods=['get'], url_path='recommended')
++    def recommended(self, request):
++        """Retorna o próximo quiz recomendado para o usuário."""
++        quizzes = self.get_queryset()
++
++        recommended_quiz = quizzes.filter(attempts__isnull=True).order_by('created_at').first()
++        recommendation_reason = "Este é um novo quiz que você ainda não respondeu."
++
++        if not recommended_quiz:
++            recommended_quiz = (
++                quizzes.annotate(avg_score=Avg('attempts__score'))
++                .order_by('avg_score', '-created_at')
++                .first()
++            )
++            if recommended_quiz and recommended_quiz.attempts.exists():
++                recommendation_reason = (
++                    "Recomendamos revisar este quiz para melhorar sua pontuação média."
++                )
++
++        if not recommended_quiz:
++            return Response(
++                {'detail': 'Nenhum quiz disponível no momento.'},
++                status=status.HTTP_204_NO_CONTENT
++            )
++
++        serializer = QuizDetailSerializer(recommended_quiz, context={'request': request})
++        return Response({'quiz': serializer.data, 'message': recommendation_reason})
++
+ 
+ class AttemptViewSet(viewsets.ReadOnlyModelViewSet):
+     """
+     API para listar e ver detalhes das Tentativas de um usuário.
+     - GET /api/assessment/attempts/
+     - GET /api/assessment/attempts/{id}/
+     """
+     queryset = Attempt.objects.all()
+     serializer_class = AttemptDetailSerializer
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+         """Filtra para mostrar apenas as tentativas do usuário logado."""
+         return self.queryset.filter(
+             user=self.request.user
+-        ).select_related('quiz').prefetch_related('answers__question')
+\ No newline at end of file
++        ).select_related('quiz').prefetch_related('answers__question')
++
++
++class QuestionViewSet(viewsets.ModelViewSet):
++    """Permite criar, editar e remover perguntas manualmente."""
++
++    serializer_class = QuestionManageSerializer
++    permission_classes = [IsAuthenticated]
++
++    def get_queryset(self):
++        return Question.objects.filter(
++            quiz__topic__course__user=self.request.user
++        ).select_related('quiz', 'subtopic', 'quiz__topic')
++
++    def get_serializer_context(self):
++        context = super().get_serializer_context()
++        context['request'] = self.request
++        return context
++
++    def perform_create(self, serializer):
++        question = serializer.save()
++        _refresh_total_questions(question.quiz)
++
++    def perform_update(self, serializer):
++        question = serializer.save()
++        _refresh_total_questions(question.quiz)
++
++    def perform_destroy(self, instance):
++        quiz = instance.quiz
++        instance.delete()
++        _refresh_total_questions(quiz)
+\ No newline at end of file

@@ -6,12 +6,14 @@ from .views import (
     GenerateQuizView,
     SubmitAttemptAPIView,
     QuizViewSet,
-    AttemptViewSet
+    AttemptViewSet,
+    QuestionViewSet,
 )
 
 router = DefaultRouter()
 router.register(r'quizzes', QuizViewSet, basename='quiz')
 router.register(r'attempts', AttemptViewSet, basename='attempt')
+router.register(r'questions', QuestionViewSet, basename='question')
 
 urlpatterns = [
     path('generate-quiz/', GenerateQuizView.as_view(), name='generate-quiz'),

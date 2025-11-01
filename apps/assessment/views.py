@@ -1,19 +1,23 @@
 # apps/assessment/views.py
-import json
-from rest_framework import viewsets, status, generics
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from django.shortcuts import get_object_or_404
 import logging
+
 import requests
+from django.db import transaction
+from django.db.models import Avg
+from rest_framework import viewsets, status, generics
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import Quiz, Question, Attempt, Answer
 from .serializers import (
-    QuizDetailSerializer, 
+    QuizDetailSerializer,
     AttemptDetailSerializer,
     QuizGenerationSerializer,
-    AttemptSubmissionSerializer
+    AttemptSubmissionSerializer,
+    QuizWriteSerializer,
+    QuestionManageSerializer,
 )
 from apps.core.services import deepseek_service
 from apps.learning.models import Topic
@@ -202,21 +206,90 @@ class SubmitAttemptAPIView(generics.GenericAPIView):
             )
 
 
-class QuizViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API para listar e ver detalhes dos Quizzes disponíveis.
-    - GET /api/assessment/quizzes/
-    - GET /api/assessment/quizzes/{id}/
-    """
+def _refresh_total_questions(quiz: Quiz):
+    """Atualiza o total de perguntas registrado no quiz."""
+    quiz.total_questions = quiz.questions.count()
+    quiz.save(update_fields=['total_questions'])
+
+
+class QuizViewSet(viewsets.ModelViewSet):
+    """API para listar, editar, criar e remover quizzes."""
+
     queryset = Quiz.objects.all()
-    serializer_class = QuizDetailSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filtra para mostrar apenas quizzes de tópicos do usuário."""
-        return self.queryset.filter(
+        queryset = self.queryset.filter(
             topic__course__user=self.request.user
         ).select_related('topic').prefetch_related('questions')
+
+        topic_id = self.request.query_params.get('topic')
+        if topic_id:
+            queryset = queryset.filter(topic_id=topic_id)
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve', 'retry', 'recommended']:
+            return QuizDetailSerializer
+        return QuizWriteSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        quiz = serializer.save()
+        _refresh_total_questions(quiz)
+
+    def perform_update(self, serializer):
+        quiz = serializer.save()
+        _refresh_total_questions(quiz)
+
+    def perform_destroy(self, instance):
+        instance.delete()
+
+    @action(detail=True, methods=['post'], url_path='retry')
+    def retry(self, request, pk=None):
+        """Permite refazer um quiz específico."""
+        quiz = self.get_object()
+        serializer = QuizDetailSerializer(quiz, context={'request': request})
+
+        message = "Quiz pronto para ser refeito."
+        last_attempt = quiz.attempts.filter(user=request.user).order_by('-completed_at').first()
+        if last_attempt:
+            message = "Você já tentou este quiz. Que tal revisar as explicações e tentar novamente?"
+
+        return Response({'quiz': serializer.data, 'message': message})
+
+    @action(detail=False, methods=['get'], url_path='recommended')
+    def recommended(self, request):
+        """Retorna o próximo quiz recomendado para o usuário."""
+        quizzes = self.get_queryset()
+
+        recommended_quiz = quizzes.filter(attempts__isnull=True).order_by('created_at').first()
+        recommendation_reason = "Este é um novo quiz que você ainda não respondeu."
+
+        if not recommended_quiz:
+            recommended_quiz = (
+                quizzes.annotate(avg_score=Avg('attempts__score'))
+                .order_by('avg_score', '-created_at')
+                .first()
+            )
+            if recommended_quiz and recommended_quiz.attempts.exists():
+                recommendation_reason = (
+                    "Recomendamos revisar este quiz para melhorar sua pontuação média."
+                )
+
+        if not recommended_quiz:
+            return Response(
+                {'detail': 'Nenhum quiz disponível no momento.'},
+                status=status.HTTP_204_NO_CONTENT
+            )
+
+        serializer = QuizDetailSerializer(recommended_quiz, context={'request': request})
+        return Response({'quiz': serializer.data, 'message': recommendation_reason})
 
 
 class AttemptViewSet(viewsets.ReadOnlyModelViewSet):
@@ -234,3 +307,33 @@ class AttemptViewSet(viewsets.ReadOnlyModelViewSet):
         return self.queryset.filter(
             user=self.request.user
         ).select_related('quiz').prefetch_related('answers__question')
+
+
+class QuestionViewSet(viewsets.ModelViewSet):
+    """Permite criar, editar e remover perguntas manualmente."""
+
+    serializer_class = QuestionManageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Question.objects.filter(
+            quiz__topic__course__user=self.request.user
+        ).select_related('quiz', 'subtopic', 'quiz__topic')
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        question = serializer.save()
+        _refresh_total_questions(question.quiz)
+
+    def perform_update(self, serializer):
+        question = serializer.save()
+        _refresh_total_questions(question.quiz)
+
+    def perform_destroy(self, instance):
+        quiz = instance.quiz
+        instance.delete()
+        _refresh_total_questions(quiz)

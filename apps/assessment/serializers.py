@@ -1,8 +1,6 @@
 # apps/assessment/serializers.py
 
 from rest_framework import serializers
-from django.db import transaction
-
 from .models import Quiz, Question, Attempt, Answer
 from apps.learning.models import Topic
 
@@ -13,6 +11,60 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         # Excluímos 'correct_answer' e 'explanation' para não entregar a resposta ao usuário antes da hora.
         fields = ['id', 'question_text', 'choices', 'difficulty']
+
+
+class QuestionManageSerializer(serializers.ModelSerializer):
+    """Serializador utilizado para criação e edição de perguntas manualmente."""
+
+    class Meta:
+        model = Question
+        fields = [
+            'id',
+            'quiz',
+            'subtopic',
+            'question_text',
+            'choices',
+            'correct_answer',
+            'difficulty',
+            'explanation',
+        ]
+
+    def validate_quiz(self, value):
+        request = self.context.get('request')
+        if request and value.topic.course.user != request.user:
+            raise serializers.ValidationError("Você não tem permissão para alterar este quiz.")
+        return value
+
+    def validate_subtopic(self, value):
+        if not value:
+            return value
+        request = self.context.get('request')
+        if request and value.topic.course.user != request.user:
+            raise serializers.ValidationError("Você não tem permissão para usar este subtópico.")
+        return value
+
+    def validate(self, attrs):
+        choices = attrs.get('choices', getattr(self.instance, 'choices', None))
+        correct_answer = attrs.get('correct_answer', getattr(self.instance, 'correct_answer', None))
+        quiz = attrs.get('quiz', getattr(self.instance, 'quiz', None))
+        subtopic = attrs.get('subtopic', getattr(self.instance, 'subtopic', None))
+
+        if choices is None or not isinstance(choices, dict):
+            raise serializers.ValidationError({
+                'choices': 'As opções de resposta devem ser um objeto JSON com as chaves das alternativas.'
+            })
+
+        if correct_answer and correct_answer not in choices:
+            raise serializers.ValidationError({
+                'correct_answer': 'A resposta correta precisa corresponder a uma das chaves em "choices".'
+            })
+
+        if quiz and subtopic and subtopic.topic_id != quiz.topic_id:
+            raise serializers.ValidationError({
+                'subtopic': 'O subtópico selecionado precisa pertencer ao mesmo tópico do quiz.'
+            })
+
+        return super().validate(attrs)
 
 class AnswerDetailSerializer(serializers.ModelSerializer):
     """Serializador para mostrar os detalhes de uma resposta dada pelo usuário."""
@@ -50,6 +102,27 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         fields = ['id', 'topic', 'topic_title', 'title', 'description', 'total_questions', 'created_at', 'questions']
 
 # --- Serializadores para Entrada de Dados (Escrita) ---
+
+class QuizWriteSerializer(serializers.ModelSerializer):
+    """Serializador utilizado para criação e edição manual de quizzes."""
+
+    class Meta:
+        model = Quiz
+        fields = ['id', 'topic', 'title', 'description']
+
+    def validate_topic(self, value):
+        request = self.context.get('request')
+        if request and value.course.user != request.user:
+            raise serializers.ValidationError("Você não tem permissão para utilizar este tópico.")
+        return value
+
+    def update(self, instance, validated_data):
+        topic = validated_data.get('topic')
+        if topic and topic != instance.topic:
+            request = self.context.get('request')
+            if request and topic.course.user != request.user:
+                raise serializers.ValidationError("Você não tem permissão para utilizar este tópico.")
+        return super().update(instance, validated_data)
 
 class QuizGenerationSerializer(serializers.Serializer):
     """
