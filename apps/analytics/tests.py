@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase,APIClient
 import numpy as np # Usaremos numpy para o cálculo da correlação no teste
 from django.test import SimpleTestCase
+from django.utils import timezone
+
 from apps.analytics.views import get_correlation_interpretation
 
 from apps.accounts.models import User
@@ -303,3 +305,109 @@ class AnalyticsAPITests(APITestCase):
         self.assertIn("Combinações", included_topics)
         self.assertNotIn("Tópico Sem Quiz", included_topics)
         self.assertNotIn("Tópico Sem Estudo", included_topics)
+
+
+class AdditionalAnalyticsEndpointsTests(APITestCase):
+    """Testes para as novas análises disponíveis."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='dash', email='dash@example.com', password='password'
+        )
+        self.client.force_authenticate(self.user)
+        self.course = Course.objects.create(user=self.user, title='História')
+        self.topic_a = Topic.objects.create(course=self.course, title='Idade Média')
+        self.topic_b = Topic.objects.create(course=self.course, title='Idade Moderna')
+
+        today = timezone.localdate()
+
+        # Criar logs consecutivos para formar streaks e métricas temporais
+        for offset, minutes in enumerate([45, 60, 30, 90]):
+            StudyLog.objects.create(
+                user=self.user,
+                course=self.course,
+                topic=self.topic_a,
+                date=today - datetime.timedelta(days=offset),
+                minutes_studied=minutes,
+            )
+
+        StudyLog.objects.create(
+            user=self.user,
+            course=self.course,
+            topic=self.topic_b,
+            date=today - datetime.timedelta(days=10),
+            minutes_studied=120,
+        )
+
+        quiz_a = Quiz.objects.create(topic=self.topic_a, title='Quiz A')
+        quiz_b = Quiz.objects.create(topic=self.topic_b, title='Quiz B')
+
+        attempt_dates = [
+            timezone.now() - datetime.timedelta(days=5),
+            timezone.now() - datetime.timedelta(days=2),
+            timezone.now() - datetime.timedelta(days=1),
+        ]
+        scores = [55.0, 70.0, 82.0]
+        for attempt_date, score in zip(attempt_dates, scores):
+            attempt = Attempt.objects.create(
+                user=self.user,
+                quiz=quiz_a,
+                score=score,
+            )
+            Attempt.objects.filter(id=attempt.id).update(completed_at=attempt_date)
+
+        attempt_b = Attempt.objects.create(
+            user=self.user,
+            quiz=quiz_b,
+            score=88.0,
+        )
+        Attempt.objects.filter(id=attempt_b.id).update(
+            completed_at=timezone.now() - datetime.timedelta(days=3)
+        )
+
+    def test_study_progress_endpoint(self):
+        response = self.client.get(reverse('analytics-study-progress'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+
+        self.assertEqual(data['total_attempts'], 4)
+        self.assertGreaterEqual(len(data['timeline']), 1)
+        self.assertGreaterEqual(len(data['per_topic']), 2)
+        self.assertIn('trend_summary', data)
+
+        topic_titles = {entry['topic_title'] for entry in data['per_topic']}
+        self.assertIn('Idade Média', topic_titles)
+        self.assertIn('Idade Moderna', topic_titles)
+
+    def test_topic_comparison_endpoint(self):
+        response = self.client.get(reverse('analytics-topic-comparison'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+
+        self.assertEqual(len(data['by_topic']), 2)
+        self.assertEqual(len(data['by_course']), 1)
+        topic_minutes = {entry['topic_title']: entry['total_minutes'] for entry in data['by_topic']}
+        self.assertGreaterEqual(topic_minutes['Idade Média'], 45)
+        self.assertGreaterEqual(topic_minutes['Idade Moderna'], 120)
+        self.assertIn('summary', data)
+
+    def test_engagement_metrics_endpoint(self):
+        response = self.client.get(reverse('analytics-engagement-metrics'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+
+        self.assertGreaterEqual(data['current_streak'], 1)
+        self.assertGreaterEqual(data['best_streak'], data['current_streak'])
+        self.assertGreater(data['total_minutes_last_7_days'], 0)
+        self.assertGreaterEqual(len(data['weekly_minutes']), 1)
+        self.assertIsNotNone(data['summary'])
+
+    def test_dashboard_endpoint_combines_sections(self):
+        response = self.client.get(reverse('analytics-dashboard'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data
+
+        self.assertIn('study_effectiveness', data)
+        self.assertIn('score_progression', data)
+        self.assertIn('topic_comparison', data)
+        self.assertIn('engagement_metrics', data)

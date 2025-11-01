@@ -1,9 +1,35 @@
 # apps/analytics/urls.py
 
 from django.urls import path
-from .views import StudyEffectivenessAPIView
+
+from .views import (
+    AnalyticsDashboardAPIView,
+    EngagementMetricsAPIView,
+    StudyEffectivenessAPIView,
+    StudyProgressAPIView,
+    TopicComparisonAPIView,
+)
 
 urlpatterns = [
-    # Endpoint único para a análise de eficácia do estudo
-    path('study-effectiveness/', StudyEffectivenessAPIView.as_view(), name='analytics-study-effectiveness'),
+    path(
+        'study-effectiveness/',
+        StudyEffectivenessAPIView.as_view(),
+        name='analytics-study-effectiveness',
+    ),
+    path(
+        'study-progress/',
+        StudyProgressAPIView.as_view(),
+        name='analytics-study-progress',
+    ),
+    path(
+        'topic-comparison/',
+        TopicComparisonAPIView.as_view(),
+        name='analytics-topic-comparison',
+    ),
+    path(
+        'engagement-metrics/',
+        EngagementMetricsAPIView.as_view(),
+        name='analytics-engagement-metrics',
+    ),
+    path('dashboard/', AnalyticsDashboardAPIView.as_view(), name='analytics-dashboard'),
 ]

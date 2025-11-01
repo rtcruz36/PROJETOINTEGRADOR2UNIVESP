@@ -1,0 +1,173 @@
+diff a/apps/analytics/tests.py b/apps/analytics/tests.py	(rejected hunks)
+@@ -1,33 +1,35 @@
+ # apps/analytics/tests.py
+ 
+ import datetime
+ from django.urls import reverse
+ from rest_framework import status
+ from rest_framework.test import APITestCase,APIClient
+ import numpy as np # Usaremos numpy para o cálculo da correlação no teste
+ from django.test import SimpleTestCase
++from django.utils import timezone
++
+ from apps.analytics.views import get_correlation_interpretation
+ 
+ from apps.accounts.models import User
+ from apps.learning.models import Course, Topic
+ from apps.scheduling.models import StudyLog
+ from apps.assessment.models import Quiz, Attempt
+ from unittest.mock import patch, MagicMock
+ from django.contrib.auth import get_user_model
+ 
+ 
+ User = get_user_model()
+ 
+ class StudyEffectivenessViewEdgeCases(APITestCase):
+     def setUp(self):
+         self.user = User.objects.create_user(username="u", password="p")
+         self.client = APIClient()
+         self.client.force_authenticate(self.user)
+ 
+     @patch("apps.analytics.views.Topic.objects")
+     @patch("apps.analytics.views.pearsonr")
+     def test_pearsonr_exception_results_in_none(self, mock_pearsonr, mock_topic_objects):
+         # Arrange: mock do queryset para produzir analysis_data com >= 2 pontos
+         class MockTopic:
+             def __init__(self, i, title, mins, score=None):
+                 self.id = i
+@@ -280,26 +282,132 @@ class AnalyticsAPITests(APITestCase):
+         topic_sem_quiz = Topic.objects.create(course=course, title="Tópico Sem Quiz")
+         StudyLog.objects.create(user=self.user, course=course, topic=topic_sem_quiz, date=datetime.date.today(), minutes_studied=100)
+ 
+         # Tópico 4: Tem quiz, mas não tem log de estudo
+         topic_sem_estudo = Topic.objects.create(course=course, title="Tópico Sem Estudo")
+         quiz = Quiz.objects.create(topic=topic_sem_estudo, title="Quiz Inútil")
+         Attempt.objects.create(user=self.user, quiz=quiz, score=50.0)
+ 
+         # Ação
+         response = self.client.get(self.url)
+ 
+         # Verificação
+         self.assertEqual(response.status_code, status.HTTP_200_OK)
+         
+         data = response.data
+         # Apenas 2 dos 4 tópicos devem ser usados no cálculo
+         self.assertEqual(data['data_points'], 2)
+         self.assertIsNotNone(data['correlation_coefficient'])
+         self.assertEqual(len(data['topic_data']), 2)
+         
+         # Verifica se os tópicos corretos foram usados
+         included_topics = [d['topic_title'] for d in data['topic_data']]
+         self.assertIn("Permutações", included_topics)
+         self.assertIn("Combinações", included_topics)
+         self.assertNotIn("Tópico Sem Quiz", included_topics)
+-        self.assertNotIn("Tópico Sem Estudo", included_topics)
+\ No newline at end of file
++        self.assertNotIn("Tópico Sem Estudo", included_topics)
++
++
++class AdditionalAnalyticsEndpointsTests(APITestCase):
++    """Testes para as novas análises disponíveis."""
++
++    def setUp(self):
++        self.user = User.objects.create_user(
++            username='dash', email='dash@example.com', password='password'
++        )
++        self.client.force_authenticate(self.user)
++        self.course = Course.objects.create(user=self.user, title='História')
++        self.topic_a = Topic.objects.create(course=self.course, title='Idade Média')
++        self.topic_b = Topic.objects.create(course=self.course, title='Idade Moderna')
++
++        today = timezone.localdate()
++
++        # Criar logs consecutivos para formar streaks e métricas temporais
++        for offset, minutes in enumerate([45, 60, 30, 90]):
++            StudyLog.objects.create(
++                user=self.user,
++                course=self.course,
++                topic=self.topic_a,
++                date=today - datetime.timedelta(days=offset),
++                minutes_studied=minutes,
++            )
++
++        StudyLog.objects.create(
++            user=self.user,
++            course=self.course,
++            topic=self.topic_b,
++            date=today - datetime.timedelta(days=10),
++            minutes_studied=120,
++        )
++
++        quiz_a = Quiz.objects.create(topic=self.topic_a, title='Quiz A')
++        quiz_b = Quiz.objects.create(topic=self.topic_b, title='Quiz B')
++
++        attempt_dates = [
++            timezone.now() - datetime.timedelta(days=5),
++            timezone.now() - datetime.timedelta(days=2),
++            timezone.now() - datetime.timedelta(days=1),
++        ]
++        scores = [55.0, 70.0, 82.0]
++        for attempt_date, score in zip(attempt_dates, scores):
++            attempt = Attempt.objects.create(
++                user=self.user,
++                quiz=quiz_a,
++                score=score,
++            )
++            Attempt.objects.filter(id=attempt.id).update(completed_at=attempt_date)
++
++        attempt_b = Attempt.objects.create(
++            user=self.user,
++            quiz=quiz_b,
++            score=88.0,
++        )
++        Attempt.objects.filter(id=attempt_b.id).update(
++            completed_at=timezone.now() - datetime.timedelta(days=3)
++        )
++
++    def test_study_progress_endpoint(self):
++        response = self.client.get(reverse('analytics-study-progress'))
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        data = response.data
++
++        self.assertEqual(data['total_attempts'], 4)
++        self.assertGreaterEqual(len(data['timeline']), 1)
++        self.assertGreaterEqual(len(data['per_topic']), 2)
++        self.assertIn('trend_summary', data)
++
++        topic_titles = {entry['topic_title'] for entry in data['per_topic']}
++        self.assertIn('Idade Média', topic_titles)
++        self.assertIn('Idade Moderna', topic_titles)
++
++    def test_topic_comparison_endpoint(self):
++        response = self.client.get(reverse('analytics-topic-comparison'))
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        data = response.data
++
++        self.assertEqual(len(data['by_topic']), 2)
++        self.assertEqual(len(data['by_course']), 1)
++        topic_minutes = {entry['topic_title']: entry['total_minutes'] for entry in data['by_topic']}
++        self.assertGreaterEqual(topic_minutes['Idade Média'], 45)
++        self.assertGreaterEqual(topic_minutes['Idade Moderna'], 120)
++        self.assertIn('summary', data)
++
++    def test_engagement_metrics_endpoint(self):
++        response = self.client.get(reverse('analytics-engagement-metrics'))
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        data = response.data
++
++        self.assertGreaterEqual(data['current_streak'], 1)
++        self.assertGreaterEqual(data['best_streak'], data['current_streak'])
++        self.assertGreater(data['total_minutes_last_7_days'], 0)
++        self.assertGreaterEqual(len(data['weekly_minutes']), 1)
++        self.assertIsNotNone(data['summary'])
++
++    def test_dashboard_endpoint_combines_sections(self):
++        response = self.client.get(reverse('analytics-dashboard'))
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        data = response.data
++
++        self.assertIn('study_effectiveness', data)
++        self.assertIn('score_progression', data)
++        self.assertIn('topic_comparison', data)
++        self.assertIn('engagement_metrics', data)
+\ No newline at end of file
