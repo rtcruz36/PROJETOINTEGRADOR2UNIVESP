@@ -1,0 +1,350 @@
+:root {
+    --planner-border: rgba(15, 23, 42, 0.08);
+    --planner-dropzone-bg: rgba(15, 23, 42, 0.02);
+    --planner-dropzone-hover: rgba(59, 130, 246, 0.12);
+    --planner-card-bg: #ffffff;
+    --planner-card-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    --planner-danger: #dc2626;
+}
+
+body {
+    background-color: #f8fafc;
+}
+
+.planner-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2rem;
+}
+
+.planner-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.planner-header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.planner-summary-text {
+    color: #475569;
+    margin-top: 0.25rem;
+}
+
+.planner-calendar {
+    padding: 1.5rem;
+}
+
+.planner-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(200px, 1fr));
+    gap: 1rem;
+    width: 100%;
+    overflow-x: auto;
+}
+
+.planner-day {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--planner-border);
+    border-radius: 1rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 16rem;
+    gap: 1rem;
+}
+
+.planner-day__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.planner-day__title {
+    font-size: 1rem;
+    margin: 0;
+    color: #0f172a;
+}
+
+.planner-day__date {
+    margin: 0.25rem 0 0;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.planner-day__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.planner-day__minutes {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.planner-day__add {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+}
+
+.planner-day__dropzone {
+    flex: 1;
+    border-radius: 0.75rem;
+    background: var(--planner-dropzone-bg);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 10rem;
+    transition: background 0.2s ease, border 0.2s ease;
+}
+
+.planner-day__dropzone.is-over {
+    background: var(--planner-dropzone-hover);
+}
+
+.planner-day__dropzone.is-empty::after {
+    content: 'Sem planos';
+    color: #94a3b8;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.planner-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--planner-card-bg);
+    border-radius: 0.75rem;
+    box-shadow: var(--planner-card-shadow);
+    padding: 0.75rem 1rem;
+    border-left: 6px solid transparent;
+    cursor: grab;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.planner-card:active {
+    cursor: grabbing;
+}
+
+.planner-card__color {
+    width: 0.75rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    background: currentColor;
+}
+
+.planner-card__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.planner-card__course {
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+
+.planner-card__minutes {
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.planner-card__edit {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.planner-card.is-dragging {
+    opacity: 0.6;
+}
+
+.planner-empty {
+    margin-top: 1rem;
+    color: #475569;
+    text-align: center;
+}
+
+.planner-feedback {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #0f172a;
+}
+
+.planner-feedback.is-error {
+    color: var(--planner-danger);
+}
+
+.planner-feedback.is-success {
+    color: #16a34a;
+}
+
+.planner-legend {
+    padding: 1.5rem;
+}
+
+.planner-course-legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0;
+    margin: 0;
+}
+
+.planner-course-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 999px;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--planner-border);
+}
+
+.planner-course-legend__empty {
+    background: transparent;
+    border-style: dashed;
+    color: #64748b;
+}
+
+.planner-course-legend__color {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.planner-course-legend__label {
+    color: #0f172a;
+}
+
+.planner-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    z-index: 20;
+}
+
+.planner-modal__content {
+    width: min(480px, 100%);
+    background: #ffffff;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.planner-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.planner-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.planner-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #0f172a;
+}
+
+.planner-field input,
+.planner-field select {
+    border-radius: 0.75rem;
+    border: 1px solid var(--planner-border);
+    padding: 0.65rem 0.9rem;
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+
+.planner-form__actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.planner-form__actions-right {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.ghost-button--danger {
+    color: var(--planner-danger);
+    border-color: rgba(220, 38, 38, 0.2);
+}
+
+.ghost-button--danger:hover,
+.ghost-button--danger:focus {
+    border-color: rgba(220, 38, 38, 0.35);
+    background: rgba(220, 38, 38, 0.08);
+}
+
+.ghost-button--tiny {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+@media (max-width: 1280px) {
+    .planner-week-grid {
+        grid-template-columns: repeat(4, minmax(200px, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .planner-main {
+        padding: 1.5rem 1rem 2rem;
+    }
+
+    .planner-week-grid {
+        grid-template-columns: repeat(2, minmax(200px, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .planner-main {
+        padding: 1rem;
+    }
+
+    .planner-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .planner-header-actions {
+        justify-content: flex-start;
+    }
+
+    .planner-week-grid {
+        grid-template-columns: 1fr;
+    }
+}
