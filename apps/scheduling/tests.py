@@ -1,14 +1,16 @@
 # apps/scheduling/tests.py
 
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 from unittest.mock import patch
+
 from apps.accounts.models import User
 from apps.learning.models import Course, Topic, Subtopic
-from apps.scheduling.models import StudyPlan
-from django.utils import timezone
-from django.contrib.auth import get_user_model
 from apps.scheduling.models import StudyPlan, StudyLog
 
 User = get_user_model()
@@ -250,9 +252,16 @@ class SchedulingAPITests(APITestCase):
         self.assertListEqual(call_kwargs['subtopicos'], subtopicos_titulos)
         self.assertListEqual(call_kwargs['planos_de_estudo'], planos_de_estudo)
 
-        # Verifica se a resposta da API é exatamente o que a IA retornou
-        self.assertEqual(response.data['Segunda-feira'][0]['subtopic'], "Scrum")
-        self.assertEqual(len(response.data['Terça-feira']), 0)
+        # Verifica se a resposta da API foi estruturada corretamente
+        self.assertIn('weekly_plan', response.data)
+        self.assertIn('summary', response.data)
+
+        weekly_plan = {dia['day_name']: dia for dia in response.data['weekly_plan']}
+        self.assertIn('Segunda-feira', weekly_plan)
+        self.assertEqual(weekly_plan['Segunda-feira']['sessions'][0]['subtopic'], "Scrum")
+        self.assertIn('Terça-feira', weekly_plan)
+        self.assertEqual(len(weekly_plan['Terça-feira']['sessions']), 0)
+        self.assertEqual(response.data['summary']['total_estimated_minutes'], 75)
 
     def test_generate_schedule_without_study_plan(self):
         """
@@ -270,3 +279,85 @@ class SchedulingAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Você precisa definir um plano de estudo", response.data['error'])
 
+
+class SchedulingInsightsEndpointsTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='insights', email='insights@example.com', password='password'
+        )
+        self.client.force_authenticate(self.user)
+
+        self.course = Course.objects.create(user=self.user, title="Algoritmos")
+        self.topic = Topic.objects.create(course=self.course, title="Estruturas de Dados")
+
+        today = timezone.localdate()
+        self.monday = today - timedelta(days=today.weekday())
+        self.tuesday = self.monday + timedelta(days=1)
+
+        self.plan_monday = StudyPlan.objects.create(
+            user=self.user,
+            course=self.course,
+            day_of_week=0,
+            minutes_planned=60,
+        )
+        self.plan_wednesday = StudyPlan.objects.create(
+            user=self.user,
+            course=self.course,
+            day_of_week=2,
+            minutes_planned=90,
+        )
+
+        StudyLog.objects.create(
+            user=self.user,
+            course=self.course,
+            topic=self.topic,
+            date=self.monday,
+            minutes_studied=45,
+        )
+        StudyLog.objects.create(
+            user=self.user,
+            course=self.course,
+            topic=self.topic,
+            date=self.tuesday,
+            minutes_studied=30,
+        )
+
+    def test_current_week_schedule_endpoint(self):
+        url = reverse('current-week-schedule')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('days', response.data)
+
+        monday_data = next(day for day in response.data['days'] if day['day_of_week'] == 0)
+        self.assertEqual(monday_data['planned_minutes'], 60)
+        self.assertEqual(monday_data['completed_minutes'], 45)
+
+    def test_weekly_progress_endpoint(self):
+        url = reverse('weekly-progress')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['overall']['planned_minutes'], 150)
+        self.assertEqual(response.data['overall']['completed_minutes'], 75)
+
+        course_entry = response.data['courses'][0]
+        self.assertAlmostEqual(course_entry['completion_percentage'], 50.0)
+
+    def test_study_reminders_endpoint(self):
+        url = reverse('study-reminders')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['reminders']), 2)
+        self.assertTrue(all('message' in item for item in response.data['reminders']))
+
+    def test_study_statistics_endpoint(self):
+        url = reverse('study-statistics')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['totals']['minutes_studied'], 75)
+        self.assertGreaterEqual(response.data['streaks']['longest_streak'], 1)
+        self.assertIsNotNone(response.data['top_course'])

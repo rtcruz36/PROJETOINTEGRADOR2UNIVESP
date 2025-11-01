@@ -1,0 +1,668 @@
+diff --git a/apps/scheduling/tests.py b/apps/scheduling/tests.py
+index d6cd08b8bab60b48b2c87917c8d221f732742f0a..3d65ab97dc4337787bf25774d056314bc6bd31ef 100644
+--- a/apps/scheduling/tests.py
++++ b/apps/scheduling/tests.py
+@@ -1,36 +1,38 @@
+ # apps/scheduling/tests.py
+ 
++from datetime import timedelta
++
++from django.contrib.auth import get_user_model
+ from django.urls import reverse
++from django.utils import timezone
+ from rest_framework import status
+ from rest_framework.test import APITestCase
+ from unittest.mock import patch
++
+ from apps.accounts.models import User
+ from apps.learning.models import Course, Topic, Subtopic
+-from apps.scheduling.models import StudyPlan
+-from django.utils import timezone
+-from django.contrib.auth import get_user_model
+ from apps.scheduling.models import StudyPlan, StudyLog
+ 
+ User = get_user_model()
+ 
+ 
+ class SchedulingViewsetsQuerysetTests(APITestCase):
+     def setUp(self):
+         self.user = User.objects.create_user("u", email="u@x.com", password="p")
+         self.client.force_authenticate(self.user)
+ 
+         # dois cursos (um do usuário, outro de outrem)
+         self.course_own = Course.objects.create(user=self.user, title="Meu Curso")
+         other = User.objects.create_user("v", email="v@x.com", password="p")
+         self.course_other = Course.objects.create(user=other, title="Outro Curso")
+ 
+         # planos do usuário
+         self.plan1 = StudyPlan.objects.create(user=self.user, course=self.course_own, day_of_week=0, minutes_planned=30)
+         self.plan2 = StudyPlan.objects.create(user=self.user, course=self.course_own, day_of_week=1, minutes_planned=45)
+         # plano de outro usuário (não deve aparecer)
+         StudyPlan.objects.create(user=other, course=self.course_other, day_of_week=2, minutes_planned=60)
+ 
+     def test_studyplan_viewset_get_queryset_filtra_por_user_e_course_id(self):
+         # 1) lista geral: só do usuário
+         resp_all = self.client.get(reverse("studyplan-list"))
+         self.assertEqual(resp_all.status_code, status.HTTP_200_OK)
+@@ -228,45 +230,134 @@ class SchedulingAPITests(APITestCase):
+             "Domingo": []
+         }
+ 
+         url = reverse('generate-schedule')
+         data = {"topic_id": self.topic.id}
+ 
+         # Ação
+         response = self.client.post(url, data, format='json')
+ 
+         # Verificação
+         self.assertEqual(response.status_code, status.HTTP_200_OK)
+         
+         # Verifica se a função da IA foi chamada com os argumentos corretos
+         # Pegamos os planos de estudo e subtópicos para garantir que a view os passou corretamente
+         planos_de_estudo = list(StudyPlan.objects.filter(user=self.user, course=self.course))
+         subtopicos_titulos = list(self.topic.subtopics.values_list('title', flat=True).order_by('order'))
+         
+         mock_distribuir_subtopicos.assert_called_once()
+         # Verificamos a chamada da função mockada. É um pouco complexo, mas garante que a view está funcionando.
+         # O primeiro argumento da chamada é 'args', o segundo é 'kwargs'.
+         call_args, call_kwargs = mock_distribuir_subtopicos.call_args
+         self.assertEqual(call_kwargs['topico'], self.topic)
+         self.assertListEqual(call_kwargs['subtopicos'], subtopicos_titulos)
+         self.assertListEqual(call_kwargs['planos_de_estudo'], planos_de_estudo)
+ 
+-        # Verifica se a resposta da API é exatamente o que a IA retornou
+-        self.assertEqual(response.data['Segunda-feira'][0]['subtopic'], "Scrum")
+-        self.assertEqual(len(response.data['Terça-feira']), 0)
++        # Verifica se a resposta da API foi estruturada corretamente
++        self.assertIn('weekly_plan', response.data)
++        self.assertIn('summary', response.data)
++
++        weekly_plan = {dia['day_name']: dia for dia in response.data['weekly_plan']}
++        self.assertIn('Segunda-feira', weekly_plan)
++        self.assertEqual(weekly_plan['Segunda-feira']['sessions'][0]['subtopic'], "Scrum")
++        self.assertIn('Terça-feira', weekly_plan)
++        self.assertEqual(len(weekly_plan['Terça-feira']['sessions']), 0)
++        self.assertEqual(response.data['summary']['total_estimated_minutes'], 75)
+ 
+     def test_generate_schedule_without_study_plan(self):
+         """
+         Garante que o endpoint retorna um erro se o usuário não tiver metas de estudo definidas.
+         """
+         # Preparação: NENHUM StudyPlan é criado.
+         
+         url = reverse('generate-schedule')
+         data = {"topic_id": self.topic.id}
+ 
+         # Ação
+         response = self.client.post(url, data, format='json')
+ 
+         # Verificação
+         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+         self.assertIn("Você precisa definir um plano de estudo", response.data['error'])
+ 
++
++class SchedulingInsightsEndpointsTests(APITestCase):
++
++    def setUp(self):
++        self.user = User.objects.create_user(
++            username='insights', email='insights@example.com', password='password'
++        )
++        self.client.force_authenticate(self.user)
++
++        self.course = Course.objects.create(user=self.user, title="Algoritmos")
++        self.topic = Topic.objects.create(course=self.course, title="Estruturas de Dados")
++
++        today = timezone.localdate()
++        self.monday = today - timedelta(days=today.weekday())
++        self.tuesday = self.monday + timedelta(days=1)
++
++        self.plan_monday = StudyPlan.objects.create(
++            user=self.user,
++            course=self.course,
++            day_of_week=0,
++            minutes_planned=60,
++        )
++        self.plan_wednesday = StudyPlan.objects.create(
++            user=self.user,
++            course=self.course,
++            day_of_week=2,
++            minutes_planned=90,
++        )
++
++        StudyLog.objects.create(
++            user=self.user,
++            course=self.course,
++            topic=self.topic,
++            date=self.monday,
++            minutes_studied=45,
++        )
++        StudyLog.objects.create(
++            user=self.user,
++            course=self.course,
++            topic=self.topic,
++            date=self.tuesday,
++            minutes_studied=30,
++        )
++
++    def test_current_week_schedule_endpoint(self):
++        url = reverse('current-week-schedule')
++        response = self.client.get(url)
++
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        self.assertIn('days', response.data)
++
++        monday_data = next(day for day in response.data['days'] if day['day_of_week'] == 0)
++        self.assertEqual(monday_data['planned_minutes'], 60)
++        self.assertEqual(monday_data['completed_minutes'], 45)
++
++    def test_weekly_progress_endpoint(self):
++        url = reverse('weekly-progress')
++        response = self.client.get(url)
++
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        self.assertEqual(response.data['overall']['planned_minutes'], 150)
++        self.assertEqual(response.data['overall']['completed_minutes'], 75)
++
++        course_entry = response.data['courses'][0]
++        self.assertAlmostEqual(course_entry['completion_percentage'], 50.0)
++
++    def test_study_reminders_endpoint(self):
++        url = reverse('study-reminders')
++        response = self.client.get(url)
++
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        self.assertEqual(len(response.data['reminders']), 2)
++        self.assertTrue(all('message' in item for item in response.data['reminders']))
++
++    def test_study_statistics_endpoint(self):
++        url = reverse('study-statistics')
++        response = self.client.get(url)
++
++        self.assertEqual(response.status_code, status.HTTP_200_OK)
++        self.assertEqual(response.data['totals']['minutes_studied'], 75)
++        self.assertGreaterEqual(response.data['streaks']['longest_streak'], 1)
++        self.assertIsNotNone(response.data['top_course'])
+\ No newline at end of file
+diff --git a/apps/scheduling/urls.py b/apps/scheduling/urls.py
+index 5566b6030f1833566c6eb97155241d64d8f67906..5a4a6516ae3500e582a7b8881a2b9d5d705d23b0 100644
+--- a/apps/scheduling/urls.py
++++ b/apps/scheduling/urls.py
+@@ -1,17 +1,30 @@
+ # apps/scheduling/urls.py
+ 
+-from django.urls import path, include
++from django.urls import include, path
+ from rest_framework.routers import DefaultRouter
+-from .views import StudyPlanViewSet, GenerateScheduleAPIView, StudyLogViewSet
++
++from .views import (
++    CurrentWeekScheduleAPIView,
++    GenerateScheduleAPIView,
++    StudyLogViewSet,
++    StudyPlanViewSet,
++    StudyReminderAPIView,
++    StudyStatisticsAPIView,
++    WeeklyProgressAPIView,
++)
+ 
+ router = DefaultRouter()
+ router.register(r'plans', StudyPlanViewSet, basename='studyplan')
+ router.register(r'logs', StudyLogViewSet, basename='studylog')
+ 
+ urlpatterns = [
+     # Endpoint principal para gerar o cronograma distribuído
+     path('generate-schedule/', GenerateScheduleAPIView.as_view(), name='generate-schedule'),
+-    
++    path('current-week/', CurrentWeekScheduleAPIView.as_view(), name='current-week-schedule'),
++    path('progress/', WeeklyProgressAPIView.as_view(), name='weekly-progress'),
++    path('reminders/', StudyReminderAPIView.as_view(), name='study-reminders'),
++    path('statistics/', StudyStatisticsAPIView.as_view(), name='study-statistics'),
++
+     # Inclui as URLs para gerenciar Planos e Logs (CRUD)
+     path('', include(router.urls)),
+ ]
+diff --git a/apps/scheduling/views.py b/apps/scheduling/views.py
+index 9048685b4e736a4a5f24c86b3c248ab04f2cb806..2ebadd43dbcd52d9ae8c9c2dc1f4b4173c8e033c 100644
+--- a/apps/scheduling/views.py
++++ b/apps/scheduling/views.py
+@@ -1,41 +1,49 @@
+ # apps/scheduling/views.py
+ 
+-from rest_framework import viewsets, status, generics
+-from rest_framework.views import APIView
+-from rest_framework.response import Response
+-from rest_framework.permissions import IsAuthenticated
+-from django.shortcuts import get_object_or_404
++from collections import defaultdict
++from datetime import timedelta
++
+ from django.db import IntegrityError
+-from .models import StudyPlan, StudyLog
+-from .serializers import StudyPlanSerializer, StudyLogSerializer
+-from apps.learning.models import Topic, Subtopic
+-from apps.core.services import deepseek_service
++from django.db.models import Sum
++from django.shortcuts import get_object_or_404
++from django.utils import timezone
++from rest_framework import status, viewsets
+ from rest_framework.exceptions import ValidationError
++from rest_framework.permissions import IsAuthenticated
++from rest_framework.response import Response
++from rest_framework.views import APIView
+ 
+-from rest_framework import generics
+-from .serializers import StudyPlanFilterSerializer
++from apps.core.services import deepseek_service
++from apps.learning.models import Topic
++
++from .models import StudyLog, StudyPlan
++from .serializers import (
++    StudyLogSerializer,
++    StudyPlanFilterSerializer,
++    StudyPlanSerializer,
++)
+ 
+ class StudyPlanViewSet(viewsets.ModelViewSet):
+     queryset = StudyPlan.objects.all()
+     serializer_class = StudyPlanSerializer
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+         # Primeiro filtra por usuário
+         queryset = self.queryset.filter(user=self.request.user)
+         
+         # Depois aplica filtros adicionais se fornecidos
+         filter_serializer = StudyPlanFilterSerializer(data=self.request.query_params)
+         filter_serializer.is_valid(raise_exception=True)
+         
+         course_id = filter_serializer.validated_data.get('course_id')
+         if course_id is not None:
+             queryset = queryset.filter(course_id=course_id)
+         
+         return queryset
+         
+     def perform_create(self, serializer):
+         try:
+             serializer.save(user=self.request.user)
+         except IntegrityError:
+             raise ValidationError({
+@@ -73,51 +81,375 @@ class GenerateScheduleAPIView(APIView):
+             )
+ 
+         # Busca os planos de estudo (metas) do usuário para a disciplina deste tópico
+         study_plans = StudyPlan.objects.filter(user=user, course=topic.course)
+         if not study_plans.exists():
+             return Response(
+                 {"error": "Você precisa definir um plano de estudo (metas) para esta disciplina antes de gerar um cronograma."},
+                 status=status.HTTP_400_BAD_REQUEST
+             )
+ 
+         # 2. Chamar o serviço do Core para fazer a distribuição
+         try:
+             # A função da IA faz todo o trabalho pesado de estimar, ordenar e distribuir
+             distributed_schedule = deepseek_service.distribuir_subtopicos_no_cronograma(
+                 topico=topic,
+                 subtopicos=subtopics,
+                 planos_de_estudo=list(study_plans)
+             )
+ 
+             if not distributed_schedule:
+                  return Response(
+                     {"error": "Não foi possível gerar o cronograma. A IA pode não ter retornado dados válidos."},
+                     status=status.HTTP_503_SERVICE_UNAVAILABLE
+                 )
+ 
+-            # 3. Retornar o cronograma gerado como resposta
+-            return Response(distributed_schedule, status=status.HTTP_200_OK)
++            # 3. Estruturar o cronograma para facilitar o consumo pelo frontend
++            dias_semana_map = {dia_nome: dia_num for dia_num, dia_nome in StudyPlan.DayOfWeek.choices}
++            weekly_plan = []
++            total_minutes = 0
++
++            for dia_nome, atividades in distributed_schedule.items():
++                day_number = dias_semana_map.get(dia_nome)
++                allocated_minutes = sum(item.get("estimated_time", 0) for item in atividades)
++                total_minutes += allocated_minutes
++                weekly_plan.append(
++                    {
++                        "day_name": dia_nome,
++                        "day_of_week": day_number,
++                        "allocated_minutes": allocated_minutes,
++                        "sessions": atividades,
++                    }
++                )
++
++            response_payload = {
++                "topic": {
++                    "id": topic.id,
++                    "title": topic.title,
++                    "course_id": topic.course_id,
++                    "course_title": topic.course.title,
++                },
++                "weekly_plan": weekly_plan,
++                "summary": {
++                    "total_estimated_minutes": total_minutes,
++                    "days_with_study": sum(1 for dia in weekly_plan if dia["allocated_minutes"] > 0),
++                },
++            }
++
++            return Response(response_payload, status=status.HTTP_200_OK)
+ 
+         except Exception as e:
+             # Logar o erro `e` em um sistema de monitoramento seria ideal
+             return Response(
+                 {"error": f"Ocorreu um erro inesperado ao gerar o cronograma: {str(e)}"},
+                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+             )
+ 
+ class StudyLogViewSet(viewsets.ModelViewSet):
+     """
+     API para gerenciar os Registros de Estudo (StudyLog).
+     Permite que o usuário registre as sessões de estudo que completou.
+     """
+     queryset = StudyLog.objects.all()
+     serializer_class = StudyLogSerializer
+     permission_classes = [IsAuthenticated]
+ 
+     def get_queryset(self):
+         """Filtra os registros para retornar apenas os do usuário logado."""
+         return self.queryset.filter(user=self.request.user).select_related('course', 'topic')
+ 
+     def perform_create(self, serializer):
+         """Associa o registro de estudo ao usuário logado."""
+-        serializer.save(user=self.request.user)
+\ No newline at end of file
++        serializer.save(user=self.request.user)
++
++
++class CurrentWeekScheduleAPIView(APIView):
++    """Retorna o cronograma planejado e concluído para a semana atual."""
++
++    permission_classes = [IsAuthenticated]
++
++    def get(self, request, *args, **kwargs):
++        user = request.user
++        today = timezone.localdate()
++        start_of_week = today - timedelta(days=today.weekday())
++        end_of_week = start_of_week + timedelta(days=6)
++
++        study_plans = (
++            StudyPlan.objects.filter(user=user)
++            .select_related("course")
++            .order_by("day_of_week", "course__title")
++        )
++        study_logs = (
++            StudyLog.objects.filter(user=user, date__range=(start_of_week, end_of_week))
++            .select_related("course", "topic")
++            .order_by("date", "created_at")
++        )
++
++        plans_by_day = defaultdict(list)
++        for plan in study_plans:
++            plans_by_day[plan.day_of_week].append(plan)
++
++        logs_by_day = defaultdict(list)
++        for log in study_logs:
++            logs_by_day[log.date.weekday()].append(log)
++
++        dias_semana = dict(StudyPlan.DayOfWeek.choices)
++        days_payload = []
++        total_planned = 0
++        total_completed = 0
++
++        for offset in range(7):
++            dia_data = start_of_week + timedelta(days=offset)
++            planned_sessions = [
++                {
++                    "plan_id": plan.id,
++                    "course_id": plan.course_id,
++                    "course_title": plan.course.title,
++                    "minutes_planned": plan.minutes_planned,
++                }
++                for plan in plans_by_day.get(offset, [])
++            ]
++            completed_sessions = [
++                {
++                    "log_id": log.id,
++                    "course_id": log.course_id,
++                    "course_title": log.course.title,
++                    "topic_id": log.topic_id,
++                    "topic_title": log.topic.title if log.topic else None,
++                    "minutes_studied": log.minutes_studied,
++                    "notes": log.notes,
++                }
++                for log in logs_by_day.get(offset, [])
++            ]
++
++            planned_minutes = sum(item["minutes_planned"] for item in planned_sessions)
++            completed_minutes = sum(item["minutes_studied"] for item in completed_sessions)
++
++            total_planned += planned_minutes
++            total_completed += completed_minutes
++
++            days_payload.append(
++                {
++                    "day_of_week": offset,
++                    "day_name": dias_semana[offset],
++                    "date": dia_data,
++                    "planned_minutes": planned_minutes,
++                    "planned_sessions": planned_sessions,
++                    "completed_minutes": completed_minutes,
++                    "completed_sessions": completed_sessions,
++                }
++            )
++
++        response_data = {
++            "week_start": start_of_week,
++            "week_end": end_of_week,
++            "total_planned_minutes": total_planned,
++            "total_completed_minutes": total_completed,
++            "days": days_payload,
++        }
++
++        return Response(response_data)
++
++
++class WeeklyProgressAPIView(APIView):
++    """Apresenta o progresso semanal planejado versus executado por disciplina."""
++
++    permission_classes = [IsAuthenticated]
++
++    def get(self, request, *args, **kwargs):
++        user = request.user
++        today = timezone.localdate()
++        start_of_week = today - timedelta(days=today.weekday())
++        end_of_week = start_of_week + timedelta(days=6)
++
++        study_plans = StudyPlan.objects.filter(user=user).select_related("course")
++        study_logs = (
++            StudyLog.objects.filter(user=user, date__range=(start_of_week, end_of_week))
++            .select_related("course")
++        )
++
++        planned_by_course = defaultdict(int)
++        course_titles = {}
++        for plan in study_plans:
++            planned_by_course[plan.course_id] += plan.minutes_planned
++            course_titles[plan.course_id] = plan.course.title
++
++        studied_by_course = defaultdict(int)
++        for log in study_logs:
++            studied_by_course[log.course_id] += log.minutes_studied
++            course_titles.setdefault(log.course_id, log.course.title)
++
++        overall_planned = sum(planned_by_course.values())
++        overall_completed = sum(studied_by_course.values())
++
++        def calculate_percentage(completed, planned):
++            if planned == 0:
++                return 0.0
++            return round((completed / planned) * 100, 2)
++
++        courses_payload = []
++        for course_id, title in course_titles.items():
++            planned = planned_by_course.get(course_id, 0)
++            completed = studied_by_course.get(course_id, 0)
++            courses_payload.append(
++                {
++                    "course_id": course_id,
++                    "course_title": title,
++                    "planned_minutes": planned,
++                    "completed_minutes": completed,
++                    "completion_percentage": calculate_percentage(completed, planned),
++                }
++            )
++
++        daily_planned = defaultdict(int)
++        for plan in study_plans:
++            daily_planned[plan.day_of_week] += plan.minutes_planned
++
++        daily_completed = defaultdict(int)
++        for log in study_logs:
++            daily_completed[log.date.weekday()] += log.minutes_studied
++
++        dias_semana = dict(StudyPlan.DayOfWeek.choices)
++        daily_progress = [
++            {
++                "day_of_week": day_number,
++                "day_name": dias_semana[day_number],
++                "planned_minutes": daily_planned.get(day_number, 0),
++                "completed_minutes": daily_completed.get(day_number, 0),
++                "completion_percentage": calculate_percentage(
++                    daily_completed.get(day_number, 0), daily_planned.get(day_number, 0)
++                ),
++            }
++            for day_number in range(7)
++        ]
++
++        payload = {
++            "week_start": start_of_week,
++            "week_end": end_of_week,
++            "overall": {
++                "planned_minutes": overall_planned,
++                "completed_minutes": overall_completed,
++                "completion_percentage": calculate_percentage(
++                    overall_completed, overall_planned
++                ),
++            },
++            "courses": courses_payload,
++            "daily_breakdown": daily_progress,
++        }
++
++        return Response(payload)
++
++
++class StudyReminderAPIView(APIView):
++    """Lista lembretes baseados nos planos de estudo da próxima semana."""
++
++    permission_classes = [IsAuthenticated]
++
++    def get(self, request, *args, **kwargs):
++        user = request.user
++        today = timezone.localdate()
++        study_plans = StudyPlan.objects.filter(user=user).select_related("course")
++        dias_semana = dict(StudyPlan.DayOfWeek.choices)
++
++        reminders = []
++        for plan in study_plans:
++            delta = (plan.day_of_week - today.weekday()) % 7
++            reminder_date = today + timedelta(days=delta)
++            reminders.append(
++                {
++                    "plan_id": plan.id,
++                    "course_id": plan.course_id,
++                    "course_title": plan.course.title,
++                    "scheduled_date": reminder_date,
++                    "day_name": dias_semana[plan.day_of_week],
++                    "minutes_planned": plan.minutes_planned,
++                    "is_today": delta == 0,
++                    "message": (
++                        f"Estudar {plan.course.title} por {plan.minutes_planned} minutos em "
++                        f"{dias_semana[plan.day_of_week]}"
++                    ),
++                }
++            )
++
++        reminders.sort(key=lambda item: (item["scheduled_date"], item["course_title"]))
++
++        return Response(
++            {
++                "generated_at": timezone.now(),
++                "reminders": reminders,
++            }
++        )
++
++
++class StudyStatisticsAPIView(APIView):
++    """Retorna estatísticas agregadas de estudo (tempo total, streaks, etc.)."""
++
++    permission_classes = [IsAuthenticated]
++
++    def get(self, request, *args, **kwargs):
++        user = request.user
++        study_logs = StudyLog.objects.filter(user=user)
++
++        total_minutes = study_logs.aggregate(total=Sum("minutes_studied"))[
++            "total"
++        ] or 0
++        total_sessions = study_logs.count()
++
++        distinct_dates = list(
++            study_logs.order_by("date").values_list("date", flat=True).distinct()
++        )
++        total_active_days = len(distinct_dates)
++        average_daily_minutes = (
++            round(total_minutes / total_active_days, 2) if total_active_days else 0.0
++        )
++
++        # Calcula streaks
++        longest_streak = 0
++        current_streak = 0
++        previous_date = None
++        for current_date in distinct_dates:
++            if previous_date and (current_date - previous_date).days == 1:
++                current_streak += 1
++            else:
++                current_streak = 1
++            longest_streak = max(longest_streak, current_streak)
++            previous_date = current_date
++
++        dates_set = set(distinct_dates)
++        today = timezone.localdate()
++        running_streak = 0
++        cursor = today
++        while cursor in dates_set:
++            running_streak += 1
++            cursor -= timedelta(days=1)
++
++        top_course_raw = (
++            study_logs.values("course__id", "course__title")
++            .annotate(total_minutes=Sum("minutes_studied"))
++            .order_by("-total_minutes")
++            .first()
++        )
++
++        top_course = None
++        if top_course_raw:
++            top_course = {
++                "course_id": top_course_raw["course__id"],
++                "course_title": top_course_raw["course__title"],
++                "minutes_studied": top_course_raw["total_minutes"],
++            }
++
++        payload = {
++            "totals": {
++                "minutes_studied": total_minutes,
++                "sessions": total_sessions,
++                "active_days": total_active_days,
++                "average_minutes_per_active_day": average_daily_minutes,
++            },
++            "streaks": {
++                "longest_streak": longest_streak,
++                "current_streak": running_streak,
++            },
++            "top_course": top_course,
++            "last_activity_date": distinct_dates[-1] if distinct_dates else None,
++        }
++
++        return Response(payload)
