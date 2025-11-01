@@ -1,0 +1,25 @@
+*   [33m4f42578[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Merge pull request #1 from rtcruz36/ana-lucia-candida-patch-1
+[31m|[m[32m\[m  
+[31m|[m [32m|[m * [33m2145eb9[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #1 from rtcruz36/ana-lucia-candida-patch-1
+[31m|[m [32m|[m[31m/[m[32m|[m 
+[31m|[m[31m/[m[32m|[m[32m/[m  
+[31m|[m * [33m898b11f[m[33m ([m[1;31morigin/ana-lucia-candida-patch-1[m[33m)[m Add files via upload
+[31m|[m[31m/[m  
+* [33md8a03b8[m documentação das API internas
+* [33m3367321[m inclusão de testes end to end - todos os testes com aprovação de 100% agora
+* [33m274515a[m melhorias nas views e nos testes do app analytics
+* [33m86ce05d[m novas alterações
+* [33mf975aa5[m algumas mudanças no app core e no app assessment
+* [33mb8c9d8c[m ainda com erros
+* [33m38dff22[m melhorias em alguns testes de integração e no código da aplicação em si
+* [33m389593f[m Inclusão dos testes de integração
+* [33md5bf5aa[m resolução de bugs do restante dos testes unitários
+* [33m6458917[m correção de mais alguns testes unitários
+* [33m9ffa565[m aumento de cobertura de testes unitários para o app accounts e correção das falhas encontradas
+* [33md4bafb3[m Inclusão de testes unitários para as chamadas de API
+*   [33m6a5f4bd[m commit novo
+[35m|[m[36m\[m  
+[35m|[m * [33m67a4d73[m Initial commit
+* [33me1d30c6[m primeiro commit depois do erro de apagar o repositório anterior
+* [33m4f44d7c[m Segurança: Remove SECRET_KEY e outras chaves do código fonte
+* [33mb0dfd49[m Tentativa de criar as chamadas à API
