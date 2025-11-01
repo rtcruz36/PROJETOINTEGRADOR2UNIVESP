@@ -1,0 +1,1561 @@
+diff --git a/frontend/index.html b/frontend/index.html
+index 676d183ab06eb49870da7d52968c0089e936e90e..6f9c519f1a1d6159e4603784a66658783b124fa1 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -74,50 +74,151 @@
+                 <div class="course-library-controls" role="group" aria-label="Filtros da biblioteca de cursos">
+                     <label class="filter-field" for="course-status-filter">
+                         <span>Status</span>
+                         <select id="course-status-filter" class="library-select">
+                             <option value="all">Todos os cursos</option>
+                             <option value="in-progress">Em andamento</option>
+                             <option value="completed">Concluídos</option>
+                         </select>
+                     </label>
+                     <label class="filter-field" for="course-sort-order">
+                         <span>Ordenar por</span>
+                         <select id="course-sort-order" class="library-select">
+                             <option value="alphabetical">Ordem alfabética</option>
+                             <option value="recent">Mais recentes</option>
+                         </select>
+                     </label>
+                 </div>
+ 
+                 <p id="course-library-empty" class="course-library-empty" hidden>
+                     Nenhum curso cadastrado ainda. Adicione uma disciplina para começar seu plano de estudos.
+                 </p>
+ 
+                 <div id="course-library-list" class="course-library-grid" aria-live="polite"></div>
+             </article>
+ 
++            <article id="course-detail-panel" class="panel course-detail-panel" aria-labelledby="course-detail-title">
++                <div id="course-detail-empty" class="course-detail-empty" role="status">
++                    Selecione um curso na biblioteca para visualizar seus detalhes.
++                </div>
++
++                <div id="course-detail-content" class="course-detail-content" hidden>
++                    <header class="course-detail-header">
++                        <div class="course-detail-heading">
++                            <span class="panel-subtitle">Detalhes do Curso</span>
++                            <h2 id="course-detail-title">—</h2>
++                            <p id="course-detail-description" class="course-detail-description"></p>
++                        </div>
++                        <div class="course-detail-progress" aria-live="polite">
++                            <span class="course-detail-progress-label">Progresso geral</span>
++                            <div class="course-detail-progress-bar" aria-hidden="true">
++                                <div id="course-detail-progress-fill" class="course-detail-progress-fill"></div>
++                            </div>
++                            <p id="course-detail-progress-summary" class="course-detail-progress-summary">--</p>
++                        </div>
++                    </header>
++
++                    <nav class="course-tabs" role="tablist" aria-label="Seções do curso selecionado">
++                        <button
++                            type="button"
++                            class="course-tab is-active"
++                            role="tab"
++                            aria-selected="true"
++                            id="course-tab-button-overview"
++                            aria-controls="course-tab-overview"
++                            data-course-tab="overview"
++                        >
++                            Visão geral
++                        </button>
++                        <button
++                            type="button"
++                            class="course-tab"
++                            role="tab"
++                            aria-selected="false"
++                            id="course-tab-button-quizzes"
++                            aria-controls="course-tab-quizzes"
++                            data-course-tab="quizzes"
++                        >
++                            Quizzes
++                        </button>
++                        <button
++                            type="button"
++                            class="course-tab"
++                            role="tab"
++                            aria-selected="false"
++                            id="course-tab-button-statistics"
++                            aria-controls="course-tab-statistics"
++                            data-course-tab="statistics"
++                        >
++                            Estatísticas
++                        </button>
++                    </nav>
++
++                    <section
++                        id="course-tab-overview"
++                        class="course-tabpanel is-active"
++                        role="tabpanel"
++                        aria-labelledby="course-tab-button-overview"
++                        data-course-panel="overview"
++                    >
++                        <h3 id="course-selected-topic" class="course-selected-topic">Nenhum tópico selecionado</h3>
++                        <div id="course-topics-list" class="course-topics-list"></div>
++                        <div class="course-detail-actions">
++                            <button id="generate-schedule-button" class="primary-button" type="button">
++                                Gerar cronograma de estudo
++                            </button>
++                            <p id="schedule-feedback" class="course-detail-feedback" role="status"></p>
++                        </div>
++                    </section>
++
++                    <section
++                        id="course-tab-quizzes"
++                        class="course-tabpanel"
++                        role="tabpanel"
++                        tabindex="0"
++                        aria-labelledby="course-tab-button-quizzes"
++                        data-course-panel="quizzes"
++                        hidden
++                    >
++                        <p id="course-quizzes-message" class="course-placeholder"></p>
++                        <ul id="course-quizzes-list" class="course-quizzes-list"></ul>
++                    </section>
++
++                    <section
++                        id="course-tab-statistics"
++                        class="course-tabpanel"
++                        role="tabpanel"
++                        tabindex="0"
++                        aria-labelledby="course-tab-button-statistics"
++                        data-course-panel="statistics"
++                        hidden
++                    >
++                        <div id="course-statistics-content" class="course-statistics-grid"></div>
++                    </section>
++                </div>
++            </article>
++
+             <section class="grid-layout">
+                 <article class="panel chart-panel">
+                     <header>
+                         <h2>Tempo estudado nos últimos 7 dias</h2>
+                         <span id="study-total" class="panel-subtitle">-- minutos totais</span>
+                     </header>
+                     <canvas id="study-time-chart" role="img" aria-label="Gráfico do tempo de estudo"></canvas>
+                 </article>
+ 
+                 <article class="panel sessions-panel">
+                     <header>
+                         <h2>Próximas sessões de estudo</h2>
+                         <span class="panel-subtitle">Baseado no seu cronograma</span>
+                     </header>
+                     <ul id="upcoming-sessions" class="session-list" aria-live="polite"></ul>
+                 </article>
+ 
+                 <article class="panel quiz-panel">
+                     <header>
+                         <h2>Quiz recomendado do dia</h2>
+                         <span class="panel-subtitle">Escolhido com base no seu histórico</span>
+                     </header>
+                     <div id="recommended-quiz" class="quiz-card" aria-live="polite"></div>
+                 </article>
+ 
+diff --git a/frontend/js/dashboard.js b/frontend/js/dashboard.js
+index 66bd169767dce30f17f8c2c58562efe6fde12f81..bdceabc05aae0c8e5c33d7938bdb6df4ebfc9f10 100644
+--- a/frontend/js/dashboard.js
++++ b/frontend/js/dashboard.js
+@@ -7,84 +7,116 @@ const selectors = {
+     loginError: document.getElementById('login-error'),
+     logoutButton: document.getElementById('logout-button'),
+     greeting: document.getElementById('user-greeting'),
+     coursesCount: document.getElementById('courses-count'),
+     topicsInProgress: document.getElementById('topics-in-progress'),
+     quizzesCompleted: document.getElementById('quizzes-completed'),
+     streakInfo: document.getElementById('streak-info'),
+     studyTotal: document.getElementById('study-total'),
+     chartCanvas: document.getElementById('study-time-chart'),
+     sessionsList: document.getElementById('upcoming-sessions'),
+     sessionTemplate: document.getElementById('session-item-template'),
+     recommendedQuiz: document.getElementById('recommended-quiz'),
+     progressPercentage: document.getElementById('progress-percentage'),
+     progressDetail: document.getElementById('progress-detail'),
+     progressRing: document.querySelector('.progress-ring__progress'),
+     courseLibraryList: document.getElementById('course-library-list'),
+     courseLibraryEmpty: document.getElementById('course-library-empty'),
+     courseStatusFilter: document.getElementById('course-status-filter'),
+     courseSortOrder: document.getElementById('course-sort-order'),
+     addCourseButton: document.getElementById('add-course-button'),
+     createPlanModal: document.getElementById('create-plan-modal'),
+     createPlanForm: document.getElementById('create-plan-form'),
+     createPlanError: document.getElementById('create-plan-error'),
+     createPlanCancel: document.getElementById('cancel-create-plan'),
+     createPlanSubmit: document.getElementById('submit-create-plan'),
++    courseDetailPanel: document.getElementById('course-detail-panel'),
++    courseDetailEmpty: document.getElementById('course-detail-empty'),
++    courseDetailContent: document.getElementById('course-detail-content'),
++    courseDetailTitle: document.getElementById('course-detail-title'),
++    courseDetailDescription: document.getElementById('course-detail-description'),
++    courseDetailProgressFill: document.getElementById('course-detail-progress-fill'),
++    courseDetailProgressSummary: document.getElementById('course-detail-progress-summary'),
++    courseSelectedTopic: document.getElementById('course-selected-topic'),
++    courseTopicsList: document.getElementById('course-topics-list'),
++    generateScheduleButton: document.getElementById('generate-schedule-button'),
++    scheduleFeedback: document.getElementById('schedule-feedback'),
++    courseTabButtons: Array.from(document.querySelectorAll('[data-course-tab]')),
++    courseTabPanels: Array.from(document.querySelectorAll('[data-course-panel]')),
++    courseQuizzesList: document.getElementById('course-quizzes-list'),
++    courseQuizzesMessage: document.getElementById('course-quizzes-message'),
++    courseStatisticsContent: document.getElementById('course-statistics-content'),
+ };
+ 
+ const state = {
+     chart: null,
+     courseLibrary: [],
++    selectedCourseId: null,
++    selectedTopicId: null,
++    activeCourseTab: 'overview',
++    topicQuizzes: new Map(),
+ };
+ 
+ document.addEventListener('DOMContentLoaded', () => {
+     selectors.loginForm.addEventListener('submit', handleLoginSubmit);
+     selectors.logoutButton.addEventListener('click', handleLogout);
+ 
+     if (selectors.courseStatusFilter) {
+         selectors.courseStatusFilter.addEventListener('change', renderCourseLibrary);
+     }
+     if (selectors.courseSortOrder) {
+         selectors.courseSortOrder.addEventListener('change', renderCourseLibrary);
+     }
+     if (selectors.addCourseButton) {
+         selectors.addCourseButton.addEventListener('click', openCreatePlanModal);
+     }
+     if (selectors.createPlanCancel) {
+         selectors.createPlanCancel.addEventListener('click', closeCreatePlanModal);
+     }
+     if (selectors.createPlanForm) {
+         selectors.createPlanForm.addEventListener('submit', handleCreatePlanSubmit);
+     }
+     if (selectors.createPlanModal) {
+         selectors.createPlanModal.addEventListener('click', (event) => {
+             if (event.target === selectors.createPlanModal) {
+                 closeCreatePlanModal();
+             }
+         });
+     }
+ 
++    if (selectors.generateScheduleButton) {
++        selectors.generateScheduleButton.addEventListener('click', handleGenerateScheduleClick);
++    }
++
++    if (selectors.courseTabButtons?.length) {
++        selectors.courseTabButtons.forEach((button) => {
++            button.addEventListener('click', () => {
++                activateCourseTab(button.dataset.courseTab);
++            });
++        });
++    }
++
+     document.addEventListener('keydown', (event) => {
+         if (event.key === 'Escape' && isCreatePlanModalOpen()) {
+             closeCreatePlanModal();
+         }
+     });
+ 
+     restoreSession();
+ });
+ 
+ function restoreSession() {
+     const tokens = loadTokens();
+     if (!tokens?.access) {
+         showLogin();
+         return;
+     }
+ 
+     loadDashboard().catch((error) => {
+         console.error('Falha ao restaurar sessão:', error);
+         clearTokens();
+         showLogin('Sua sessão expirou. Entre novamente.');
+     });
+ }
+ 
+ async function handleLoginSubmit(event) {
+     event.preventDefault();
+@@ -302,141 +334,309 @@ function renderRecommendedQuiz(payload) {
+         const topic = document.createElement('span');
+         topic.className = 'panel-subtitle';
+         topic.textContent = `Tópico: ${quiz.topic_title}`;
+         container.appendChild(topic);
+     }
+ 
+     if (quiz.description) {
+         const description = document.createElement('p');
+         description.textContent = quiz.description;
+         container.appendChild(description);
+     }
+ 
+     if (message) {
+         const recommendation = document.createElement('p');
+         recommendation.className = 'panel-subtitle';
+         recommendation.textContent = message;
+         container.appendChild(recommendation);
+     }
+ 
+     const link = document.createElement('a');
+     link.href = `#/quizzes/${quiz.id}`;
+     link.textContent = 'Ver detalhes do quiz';
+     container.appendChild(link);
+ }
+ 
++function buildSummaryStats(coursesData, attemptsData, engagement) {
++    const courses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
++    const attempts = Array.isArray(attemptsData?.results) ? attemptsData.results : attemptsData || [];
++
++    let totalCourses = courses.length;
++    let topicsInProgress = 0;
++    let totalSubtopics = 0;
++    let completedSubtopics = 0;
++
++    courses.forEach((course) => {
++        const topics = course.topics || [];
++        topics.forEach((topic) => {
++            const subtopics = topic.subtopics || [];
++            const completed = subtopics.filter((sub) => sub.is_completed).length;
++            if (subtopics.length > 0 && completed < subtopics.length) {
++                topicsInProgress += 1;
++            }
++            totalSubtopics += subtopics.length;
++            completedSubtopics += completed;
++        });
++    });
++
++    const percentage = totalSubtopics === 0 ? 0 : Math.round((completedSubtopics / totalSubtopics) * 100);
++    const studyTotal = calculateStudyTotalMinutes(engagement);
++
++    return {
++        totalCourses,
++        topicsInProgress,
++        quizzesCompleted: attempts.length,
++        studyTotal,
++        streak: {
++            current: engagement?.current_streak || 0,
++            best: engagement?.best_streak || 0,
++        },
++        progress: {
++            total: totalSubtopics,
++            completed: completedSubtopics,
++            percentage,
++        },
++    };
++}
++
++function calculateStudyTotalMinutes(engagement) {
++    const total = engagement?.total_minutes_last_7_days;
++    return typeof total === 'number' && !Number.isNaN(total) ? total : 0;
++}
++
++function buildStudySeries(logsData) {
++    const logs = Array.isArray(logsData?.results) ? logsData.results : logsData || [];
++    const today = new Date();
++    const days = [];
++    for (let offset = 6; offset >= 0; offset -= 1) {
++        const date = new Date(today);
++        date.setDate(today.getDate() - offset);
++        days.push(date);
++    }
++
++    const minutesPerDay = new Map(days.map((date) => [formatIsoDate(date), 0]));
++
++    logs.forEach((log) => {
++        if (!log.date || typeof log.minutes_studied !== 'number') {
++            return;
++        }
++        const dayKey = log.date;
++        if (minutesPerDay.has(dayKey)) {
++            const current = minutesPerDay.get(dayKey) ?? 0;
++            minutesPerDay.set(dayKey, current + log.minutes_studied);
++        }
++    });
++
++    const formatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit' });
++    const labels = [];
++    const values = [];
++
++    minutesPerDay.forEach((minutes, isoDate) => {
++        const date = new Date(`${isoDate}T00:00:00`);
++        labels.push(capitalize(formatter.format(date)));
++        values.push(minutes);
++    });
++
++    const studyTotal = Array.from(minutesPerDay.values()).reduce((acc, value) => acc + value, 0);
++    selectors.studyTotal.textContent = `${studyTotal} minutos totais`;
++
++    return { labels, values };
++}
++
++function capitalize(text) {
++    return text.charAt(0).toUpperCase() + text.slice(1);
++}
++
++function formatIsoDate(date) {
++    const year = date.getFullYear();
++    const month = String(date.getMonth() + 1).padStart(2, '0');
++    const day = String(date.getDate()).padStart(2, '0');
++    return `${year}-${month}-${day}`;
++}
++
+ function updateCourseLibrary(coursesData) {
+     if (!selectors.courseLibraryList) {
+         return;
+     }
+ 
+     const rawCourses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
+     state.courseLibrary = rawCourses.map((course) => decorateCourse(course));
++
++    const validTopicIds = new Set();
++    state.courseLibrary.forEach((course) => {
++        course.topics.forEach((topic) => {
++            validTopicIds.add(topic.id);
++        });
++    });
++
++    state.topicQuizzes = new Map(
++        Array.from(state.topicQuizzes.entries()).filter(([topicId]) => validTopicIds.has(Number(topicId))),
++    );
++
++    if (!state.courseLibrary.length) {
++        state.selectedCourseId = null;
++        state.selectedTopicId = null;
++        updateCourseDetail(null);
++        renderCourseLibrary();
++        return;
++    }
++
++    if (!state.selectedCourseId || !state.courseLibrary.some((course) => course.id === state.selectedCourseId)) {
++        state.selectedCourseId = state.courseLibrary[0].id;
++    }
++
++    const selectedCourse = getSelectedCourse();
++    if (selectedCourse) {
++        if (!state.selectedTopicId || !selectedCourse.topics.some((topic) => topic.id === state.selectedTopicId)) {
++            state.selectedTopicId = selectedCourse.topics[0]?.id || null;
++        }
++    } else {
++        state.selectedTopicId = null;
++    }
++
+     renderCourseLibrary();
++    updateCourseDetail(selectedCourse || null);
+ }
+ 
+ function decorateCourse(course) {
+     const topics = Array.isArray(course?.topics) ? course.topics : [];
+     let totalSubtopics = 0;
+     let completedSubtopics = 0;
+ 
+-    topics.forEach((topic) => {
++    const decoratedTopics = topics.map((topic) => {
+         const subtopics = Array.isArray(topic?.subtopics) ? topic.subtopics : [];
+-        totalSubtopics += subtopics.length;
+-        completedSubtopics += subtopics.filter((item) => item?.is_completed).length;
++        const topicTotal = subtopics.length;
++        const topicCompleted = subtopics.filter((item) => item?.is_completed).length;
++
++        totalSubtopics += topicTotal;
++        completedSubtopics += topicCompleted;
++
++        return {
++            ...topic,
++            subtopics,
++            totalSubtopics: topicTotal,
++            completedSubtopics: topicCompleted,
++            progressPercentage: topicTotal === 0 ? 0 : Math.round((topicCompleted / topicTotal) * 100),
++        };
+     });
+ 
+     const percentage = totalSubtopics === 0 ? 0 : Math.round((completedSubtopics / totalSubtopics) * 100);
+     const status = totalSubtopics > 0 && completedSubtopics === totalSubtopics ? 'completed' : 'in-progress';
+ 
+     return {
+         ...course,
+-        topics,
++        topics: decoratedTopics,
+         totalSubtopics,
+         completedSubtopics,
+         progressPercentage: percentage,
+         status,
+     };
+ }
+ 
+ function renderCourseLibrary() {
+     if (!selectors.courseLibraryList) {
+         return;
+     }
+ 
+     const statusValue = selectors.courseStatusFilter?.value || 'all';
+     const filteredCourses = getFilteredCourses();
+     selectors.courseLibraryList.innerHTML = '';
+ 
++    let selectionChanged = false;
++
+     if (!filteredCourses.length) {
+         if (selectors.courseLibraryEmpty) {
+             const message = statusValue === 'all'
+                 ? 'Nenhum curso cadastrado ainda. Adicione uma disciplina para começar seu plano de estudos.'
+                 : 'Nenhum curso encontrado para os filtros selecionados.';
+             selectors.courseLibraryEmpty.textContent = message;
+             selectors.courseLibraryEmpty.hidden = false;
+         }
++        if (state.selectedCourseId !== null || state.selectedTopicId !== null) {
++            state.selectedCourseId = null;
++            state.selectedTopicId = null;
++            selectionChanged = true;
++        }
++        if (selectionChanged) {
++            updateCourseDetail(null);
++        }
+         return;
+     }
+ 
+     if (selectors.courseLibraryEmpty) {
+         selectors.courseLibraryEmpty.hidden = true;
+     }
+ 
++    if (!filteredCourses.some((course) => course.id === state.selectedCourseId)) {
++        state.selectedCourseId = filteredCourses[0]?.id ?? null;
++        state.selectedTopicId = filteredCourses[0]?.topics[0]?.id || null;
++        selectionChanged = true;
++    }
++
+     const fragment = document.createDocumentFragment();
+     filteredCourses.forEach((course) => {
+         fragment.appendChild(buildCourseCard(course));
+     });
+ 
+     selectors.courseLibraryList.appendChild(fragment);
++
++    if (selectionChanged) {
++        updateCourseDetail(getSelectedCourse());
++    }
+ }
+ 
+ function getFilteredCourses() {
+     const status = selectors.courseStatusFilter?.value || 'all';
+     const sortOrder = selectors.courseSortOrder?.value || 'alphabetical';
+ 
+     let courses = [...state.courseLibrary];
+ 
+     if (status !== 'all') {
+         courses = courses.filter((course) => course.status === status);
+     }
+ 
+     courses.sort((a, b) => {
+         if (sortOrder === 'recent') {
+             const aDate = parseDate(a.updated_at || a.created_at);
+             const bDate = parseDate(b.updated_at || b.created_at);
+             return bDate - aDate;
+         }
+         return a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' });
+     });
+ 
+     return courses;
+ }
+ 
+ function buildCourseCard(course) {
+     const card = document.createElement('article');
+     card.className = 'course-card';
++    card.dataset.courseId = String(course.id);
++    card.setAttribute('role', 'button');
++    card.tabIndex = 0;
++    if (course.id === state.selectedCourseId) {
++        card.classList.add('course-card--active');
++    }
+ 
+     const header = document.createElement('div');
+     header.className = 'course-card-header';
+ 
+     const title = document.createElement('h3');
+     title.textContent = course.title;
+     header.appendChild(title);
+ 
+     const statusBadge = document.createElement('span');
+     statusBadge.className = `course-status ${course.status === 'completed' ? 'course-status--completed' : ''}`;
+     statusBadge.textContent = course.status === 'completed' ? 'Concluído' : 'Em andamento';
+     header.appendChild(statusBadge);
+ 
+     card.appendChild(header);
+ 
+     if (course.description) {
+         const description = document.createElement('p');
+         description.className = 'course-card-description';
+         description.textContent = course.description;
+         card.appendChild(description);
+     }
+ 
+     const progress = document.createElement('div');
+     progress.className = 'course-progress';
+ 
+@@ -456,53 +656,557 @@ function buildCourseCard(course) {
+     const detail = document.createElement('span');
+     detail.className = 'course-progress-detail';
+     detail.textContent = course.totalSubtopics
+         ? `${course.completedSubtopics} de ${course.totalSubtopics} subtópicos`
+         : 'Nenhum subtópico cadastrado';
+     progress.appendChild(detail);
+ 
+     card.appendChild(progress);
+ 
+     const metadata = document.createElement('ul');
+     metadata.className = 'course-metadata';
+ 
+     const topicsItem = document.createElement('li');
+     topicsItem.textContent = `${course.topics.length} tópico(s)`;
+     metadata.appendChild(topicsItem);
+ 
+     const formattedDate = formatHumanDate(course.updated_at || course.created_at);
+     if (formattedDate) {
+         const updatedItem = document.createElement('li');
+         updatedItem.textContent = `Atualizado em ${formattedDate}`;
+         metadata.appendChild(updatedItem);
+     }
+ 
+     card.appendChild(metadata);
+ 
++    card.addEventListener('click', () => handleCourseSelection(course.id));
++    card.addEventListener('keydown', (event) => {
++        if (event.key === 'Enter' || event.key === ' ') {
++            event.preventDefault();
++            handleCourseSelection(course.id);
++        }
++    });
++
+     return card;
+ }
+ 
++function handleCourseSelection(courseId) {
++    if (state.selectedCourseId === courseId) {
++        return;
++    }
++    state.selectedCourseId = courseId;
++
++    const course = getSelectedCourse();
++    if (!course) {
++        state.selectedTopicId = null;
++        updateCourseDetail(null);
++        renderCourseLibrary();
++        return;
++    }
++
++    if (!course.topics.some((topic) => topic.id === state.selectedTopicId)) {
++        state.selectedTopicId = course.topics[0]?.id || null;
++    }
++
++    resetScheduleFeedback();
++    updateCourseDetail(course);
++    renderCourseLibrary();
++}
++
++function getSelectedCourse() {
++    if (!state.selectedCourseId) {
++        return null;
++    }
++    return state.courseLibrary.find((course) => course.id === state.selectedCourseId) || null;
++}
++
++function getSelectedTopic(course = getSelectedCourse()) {
++    if (!course) {
++        return null;
++    }
++    return course.topics.find((topic) => topic.id === state.selectedTopicId) || null;
++}
++
++function updateCourseDetail(course) {
++    if (!selectors.courseDetailPanel) {
++        return;
++    }
++
++    resetScheduleFeedback();
++
++    if (!course) {
++        if (selectors.courseDetailEmpty) {
++            selectors.courseDetailEmpty.hidden = false;
++        }
++        if (selectors.courseDetailContent) {
++            selectors.courseDetailContent.hidden = true;
++        }
++        if (selectors.courseDetailTitle) {
++            selectors.courseDetailTitle.textContent = 'Selecione um curso';
++        }
++        if (selectors.courseDetailDescription) {
++            selectors.courseDetailDescription.textContent =
++                'Escolha uma disciplina na biblioteca para visualizar os tópicos e gerar um cronograma.';
++        }
++        renderCourseTopics(null);
++        renderCourseQuizzes(null);
++        renderCourseStatistics(null);
++        activateCourseTab('overview');
++        return;
++    }
++
++    if (selectors.courseDetailEmpty) {
++        selectors.courseDetailEmpty.hidden = true;
++    }
++    if (selectors.courseDetailContent) {
++        selectors.courseDetailContent.hidden = false;
++    }
++
++    if (selectors.courseDetailTitle) {
++        selectors.courseDetailTitle.textContent = course.title;
++    }
++    if (selectors.courseDetailDescription) {
++        selectors.courseDetailDescription.textContent = course.description
++            ? course.description
++            : 'Este curso ainda não possui uma descrição cadastrada.';
++    }
++
++    if (selectors.courseDetailProgressFill) {
++        const progressValue = Math.max(0, Math.min(Number(course.progressPercentage) || 0, 100));
++        selectors.courseDetailProgressFill.style.width = `${progressValue}%`;
++    }
++    if (selectors.courseDetailProgressSummary) {
++        const total = course.totalSubtopics || 0;
++        selectors.courseDetailProgressSummary.textContent = `${course.completedSubtopics} de ${total} subtópicos concluídos`;
++    }
++
++    renderCourseTopics(course);
++    renderCourseQuizzes(state.selectedTopicId);
++    renderCourseStatistics(course);
++    activateCourseTab(state.activeCourseTab);
++}
++
++function renderCourseTopics(course) {
++    if (!selectors.courseTopicsList || !selectors.courseSelectedTopic) {
++        return;
++    }
++
++    selectors.courseTopicsList.innerHTML = '';
++
++    if (!course) {
++        selectors.courseSelectedTopic.textContent = 'Nenhum tópico selecionado';
++        if (selectors.generateScheduleButton) {
++            selectors.generateScheduleButton.disabled = true;
++        }
++        return;
++    }
++
++    const topics = Array.isArray(course.topics) ? [...course.topics] : [];
++    topics.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
++
++    if (!topics.length) {
++        selectors.courseSelectedTopic.textContent = 'Nenhum tópico disponível';
++        if (selectors.generateScheduleButton) {
++            selectors.generateScheduleButton.disabled = true;
++        }
++        const emptyMessage = document.createElement('p');
++        emptyMessage.className = 'course-placeholder';
++        emptyMessage.textContent = 'Cadastre tópicos para acompanhar o progresso desta disciplina.';
++        selectors.courseTopicsList.appendChild(emptyMessage);
++        return;
++    }
++
++    const fragment = document.createDocumentFragment();
++
++    topics.forEach((topic) => {
++        const container = document.createElement('article');
++        container.className = 'course-topic';
++        if (topic.id === state.selectedTopicId) {
++            container.classList.add('course-topic--active');
++        }
++
++        const headerButton = document.createElement('button');
++        headerButton.type = 'button';
++        headerButton.className = 'course-topic-header';
++        headerButton.addEventListener('click', () => handleTopicSelection(topic.id));
++
++        const info = document.createElement('div');
++        const title = document.createElement('h3');
++        title.textContent = topic.title;
++        info.appendChild(title);
++
++        const summary = document.createElement('span');
++        summary.textContent = topic.totalSubtopics
++            ? `${topic.completedSubtopics} de ${topic.totalSubtopics} subtópicos concluídos`
++            : 'Nenhum subtópico cadastrado';
++        info.appendChild(summary);
++
++        if (topic.suggested_study_plan) {
++            const suggestion = document.createElement('span');
++            suggestion.textContent = topic.suggested_study_plan;
++            info.appendChild(suggestion);
++        }
++
++        const meta = document.createElement('div');
++        meta.className = 'course-topic-meta';
++        const percentage = document.createElement('strong');
++        percentage.textContent = `${topic.progressPercentage}%`;
++        meta.appendChild(percentage);
++        const label = document.createElement('span');
++        label.textContent = 'Concluído';
++        meta.appendChild(label);
++
++        headerButton.appendChild(info);
++        headerButton.appendChild(meta);
++        container.appendChild(headerButton);
++
++        const subtopicsList = document.createElement('ul');
++        subtopicsList.className = 'course-subtopics';
++
++        if (!topic.subtopics.length) {
++            const emptyItem = document.createElement('li');
++            emptyItem.className = 'course-placeholder';
++            emptyItem.textContent = 'Nenhum subtópico cadastrado para este tópico.';
++            subtopicsList.appendChild(emptyItem);
++        } else {
++            topic.subtopics.forEach((subtopic) => {
++                const item = document.createElement('li');
++                item.className = 'course-subtopic';
++
++                const checkbox = document.createElement('input');
++                checkbox.type = 'checkbox';
++                checkbox.checked = Boolean(subtopic.is_completed);
++                checkbox.disabled = true;
++                const checkboxId = `topic-${topic.id}-subtopic-${subtopic.id}`;
++                checkbox.id = checkboxId;
++                item.appendChild(checkbox);
++
++                const labelNode = document.createElement('label');
++                labelNode.setAttribute('for', checkboxId);
++                labelNode.textContent = subtopic.title;
++
++                if (subtopic.details) {
++                    const details = document.createElement('span');
++                    details.textContent = subtopic.details;
++                    labelNode.appendChild(details);
++                }
++
++                item.appendChild(labelNode);
++                subtopicsList.appendChild(item);
++            });
++        }
++
++        container.appendChild(subtopicsList);
++        fragment.appendChild(container);
++    });
++
++    selectors.courseTopicsList.appendChild(fragment);
++
++    const selectedTopic = topics.find((topic) => topic.id === state.selectedTopicId) || topics[0];
++    selectors.courseSelectedTopic.textContent = selectedTopic
++        ? `Cronograma focado no tópico: ${selectedTopic.title}`
++        : 'Nenhum tópico selecionado';
++
++    if (selectors.generateScheduleButton) {
++        selectors.generateScheduleButton.disabled = !selectedTopic || !selectedTopic.totalSubtopics;
++    }
++}
++
++function handleTopicSelection(topicId) {
++    if (state.selectedTopicId === topicId) {
++        return;
++    }
++    state.selectedTopicId = topicId;
++    const course = getSelectedCourse();
++    renderCourseTopics(course);
++    resetScheduleFeedback();
++
++    if (state.activeCourseTab === 'quizzes') {
++        ensureTopicQuizzes(topicId);
++    } else {
++        renderCourseQuizzes(topicId);
++    }
++}
++
++function activateCourseTab(tabName = 'overview') {
++    if (!selectors.courseTabButtons?.length || !selectors.courseTabPanels?.length) {
++        return;
++    }
++
++    const normalized = ['overview', 'quizzes', 'statistics'].includes(tabName) ? tabName : 'overview';
++    state.activeCourseTab = normalized;
++
++    selectors.courseTabButtons.forEach((button) => {
++        const isActive = button.dataset.courseTab === normalized;
++        button.classList.toggle('is-active', isActive);
++        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
++    });
++
++    selectors.courseTabPanels.forEach((panel) => {
++        const isActive = panel.dataset.coursePanel === normalized;
++        panel.classList.toggle('is-active', isActive);
++        panel.hidden = !isActive;
++    });
++
++    if (normalized === 'quizzes') {
++        renderCourseQuizzes(state.selectedTopicId);
++        ensureTopicQuizzes(state.selectedTopicId);
++    } else if (normalized === 'statistics') {
++        renderCourseStatistics(getSelectedCourse());
++    } else if (normalized === 'overview') {
++        renderCourseTopics(getSelectedCourse());
++    }
++}
++
++function renderCourseQuizzes(topicId) {
++    if (!selectors.courseQuizzesList || !selectors.courseQuizzesMessage) {
++        return;
++    }
++
++    selectors.courseQuizzesList.innerHTML = '';
++    selectors.courseQuizzesMessage.dataset.status = '';
++
++    const course = getSelectedCourse();
++    if (!course) {
++        selectors.courseQuizzesMessage.textContent = 'Selecione um curso para visualizar os quizzes disponíveis.';
++        return;
++    }
++    const topic = course?.topics.find((item) => item.id === topicId) || null;
++
++    if (!topic) {
++        selectors.courseQuizzesMessage.textContent = 'Selecione um tópico para ver os quizzes relacionados.';
++        return;
++    }
++
++    const normalizedId = Number(topic.id);
++    const cacheEntry = state.topicQuizzes.get(normalizedId);
++
++    if (!cacheEntry) {
++        selectors.courseQuizzesMessage.textContent = 'Selecione a aba Quizzes para carregar as atividades deste tópico.';
++        return;
++    }
++
++    if (cacheEntry.status === 'loading') {
++        selectors.courseQuizzesMessage.dataset.status = 'loading';
++        selectors.courseQuizzesMessage.textContent = 'Carregando quizzes...';
++        return;
++    }
++
++    if (cacheEntry.status === 'error') {
++        selectors.courseQuizzesMessage.dataset.status = 'error';
++        selectors.courseQuizzesMessage.textContent = cacheEntry.message || 'Não foi possível carregar os quizzes.';
++        return;
++    }
++
++    const quizzes = Array.isArray(cacheEntry.items) ? cacheEntry.items : [];
++
++    if (!quizzes.length) {
++        selectors.courseQuizzesMessage.textContent = 'Nenhum quiz cadastrado para este tópico ainda.';
++        return;
++    }
++
++    selectors.courseQuizzesMessage.textContent = `Quizzes disponíveis para ${topic.title}:`;
++
++    const fragment = document.createDocumentFragment();
++    quizzes.forEach((quiz) => {
++        const item = document.createElement('li');
++        item.className = 'course-quiz-item';
++
++        const title = document.createElement('h4');
++        title.textContent = quiz.title || 'Quiz sem título';
++        item.appendChild(title);
++
++        if (quiz.description) {
++            const description = document.createElement('p');
++            description.textContent = quiz.description;
++            item.appendChild(description);
++        }
++
++        const metadata = document.createElement('p');
++        metadata.className = 'course-placeholder';
++        const totalQuestions = quiz.total_questions ?? quiz.questions?.length ?? 0;
++        const createdAt = formatHumanDate(quiz.created_at);
++        metadata.textContent = createdAt
++            ? `${totalQuestions} pergunta(s) • Criado em ${createdAt}`
++            : `${totalQuestions} pergunta(s)`;
++        item.appendChild(metadata);
++
++        fragment.appendChild(item);
++    });
++
++    selectors.courseQuizzesList.appendChild(fragment);
++}
++
++async function ensureTopicQuizzes(topicId) {
++    const normalizedId = Number(topicId);
++    if (!normalizedId) {
++        renderCourseQuizzes(null);
++        return;
++    }
++
++    const existing = state.topicQuizzes.get(normalizedId);
++    if (existing && existing.status === 'loaded') {
++        renderCourseQuizzes(normalizedId);
++        return;
++    }
++
++    state.topicQuizzes.set(normalizedId, { status: 'loading' });
++    renderCourseQuizzes(normalizedId);
++
++    try {
++        const data = await apiFetch(`/assessment/quizzes/?topic=${encodeURIComponent(normalizedId)}`);
++        const items = Array.isArray(data?.results) ? data.results : data || [];
++        state.topicQuizzes.set(normalizedId, { status: 'loaded', items });
++        renderCourseQuizzes(normalizedId);
++    } catch (error) {
++        console.error('Erro ao carregar quizzes do tópico:', error);
++        state.topicQuizzes.set(normalizedId, {
++            status: 'error',
++            message: error.message || 'Não foi possível carregar os quizzes deste tópico.',
++        });
++        renderCourseQuizzes(normalizedId);
++    }
++}
++
++function renderCourseStatistics(course) {
++    if (!selectors.courseStatisticsContent) {
++        return;
++    }
++
++    selectors.courseStatisticsContent.innerHTML = '';
++
++    if (!course) {
++        return;
++    }
++
++    const topics = Array.isArray(course.topics) ? course.topics : [];
++    const completedTopics = topics.filter((topic) => topic.totalSubtopics > 0 && topic.totalSubtopics === topic.completedSubtopics).length;
++    const activeTopics = Math.max(topics.length - completedTopics, 0);
++    const completionRate = course.totalSubtopics
++        ? Math.round((course.completedSubtopics / course.totalSubtopics) * 100)
++        : 0;
++
++    const stats = [
++        { label: 'Tópicos cadastrados', value: topics.length },
++        { label: 'Tópicos concluídos', value: completedTopics },
++        { label: 'Subtópicos concluídos', value: course.completedSubtopics },
++        { label: 'Taxa de conclusão', value: `${completionRate}%` },
++    ];
++
++    if (activeTopics > 0) {
++        stats.push({ label: 'Tópicos em andamento', value: activeTopics });
++    }
++
++    const fragment = document.createDocumentFragment();
++    stats.forEach((stat) => {
++        const card = document.createElement('div');
++        card.className = 'course-stat-card';
++        const value = document.createElement('strong');
++        value.textContent = String(stat.value);
++        const label = document.createElement('span');
++        label.textContent = stat.label;
++        card.appendChild(value);
++        card.appendChild(label);
++        fragment.appendChild(card);
++    });
++
++    selectors.courseStatisticsContent.appendChild(fragment);
++}
++
++async function handleGenerateScheduleClick() {
++    const course = getSelectedCourse();
++    if (!course) {
++        setScheduleFeedback('error', 'Selecione um curso para gerar o cronograma.');
++        return;
++    }
++
++    const topic = getSelectedTopic(course);
++    if (!topic) {
++        setScheduleFeedback('error', 'Selecione um tópico para gerar o cronograma.');
++        return;
++    }
++
++    if (!topic.totalSubtopics) {
++        setScheduleFeedback('error', 'Este tópico ainda não possui subtópicos suficientes para gerar um cronograma.');
++        return;
++    }
++
++    const button = selectors.generateScheduleButton;
++    const originalLabel = button?.textContent;
++    if (button) {
++        button.disabled = true;
++        button.textContent = 'Gerando...';
++    }
++
++    setScheduleFeedback('loading', 'Gerando cronograma com base nas suas metas de estudo...');
++
++    try {
++        const response = await apiFetch('/scheduling/generate-schedule/', {
++            method: 'POST',
++            body: JSON.stringify({ topic_id: topic.id }),
++        });
++
++        const totalMinutes = response?.summary?.total_estimated_minutes ?? 0;
++        const daysWithStudy = response?.summary?.days_with_study ?? 0;
++        const pieces = [`Cronograma criado para ${response?.topic?.title || topic.title}.`];
++
++        if (totalMinutes) {
++            pieces.push(`${totalMinutes} minuto(s) distribuído(s) na semana.`);
++        }
++
++        if (daysWithStudy) {
++            pieces.push(`${daysWithStudy} dia(s) com sessões planejadas.`);
++        }
++
++        setScheduleFeedback('success', pieces.join(' '));
++    } catch (error) {
++        console.error('Erro ao gerar cronograma:', error);
++        setScheduleFeedback('error', error.message || 'Não foi possível gerar o cronograma.');
++    } finally {
++        if (button) {
++            button.disabled = false;
++            button.textContent = originalLabel || 'Gerar cronograma de estudo';
++        }
++    }
++}
++
++function resetScheduleFeedback() {
++    setScheduleFeedback('', '');
++}
++
++function setScheduleFeedback(status, message) {
++    if (!selectors.scheduleFeedback) {
++        return;
++    }
++    if (status) {
++        selectors.scheduleFeedback.dataset.status = status;
++    } else {
++        delete selectors.scheduleFeedback.dataset.status;
++    }
++    selectors.scheduleFeedback.textContent = message || '';
++}
++
+ function parseDate(value) {
+     if (!value) {
+         return 0;
+     }
+     const date = new Date(value);
+     return Number.isNaN(date.valueOf()) ? 0 : date.valueOf();
+ }
+ 
+ function formatHumanDate(value) {
+     if (!value) {
+         return '';
+     }
+     const date = new Date(value);
+     if (Number.isNaN(date.valueOf())) {
+         return '';
+     }
+     return new Intl.DateTimeFormat('pt-BR', {
+         day: '2-digit',
+         month: 'short',
+         year: 'numeric',
+     }).format(date);
+ }
+ 
+ function openCreatePlanModal() {
+     if (!selectors.createPlanModal) {
+diff --git a/frontend/styles/dashboard.css b/frontend/styles/dashboard.css
+index 08ad2a0f769d41df852662a4253df1fd24086ff3..aacbfd49521b946f63a16720c224747c1102c899 100644
+--- a/frontend/styles/dashboard.css
++++ b/frontend/styles/dashboard.css
+@@ -199,50 +199,65 @@ body {
+ .course-library-empty {
+     padding: 1.2rem;
+     border-radius: 14px;
+     background: var(--surface-alt);
+     border: 1px dashed rgba(76, 110, 245, 0.25);
+     text-align: center;
+     color: var(--text-muted);
+     font-size: 0.95rem;
+ }
+ 
+ .course-library-grid {
+     display: grid;
+     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+     gap: 1.25rem;
+ }
+ 
+ .course-card {
+     background: var(--surface-alt);
+     border-radius: 16px;
+     border: 1px solid rgba(76, 110, 245, 0.12);
+     padding: 1.4rem;
+     display: flex;
+     flex-direction: column;
+     gap: 0.85rem;
+     min-height: 220px;
++    cursor: pointer;
++    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
++}
++
++.course-card:hover,
++.course-card:focus,
++.course-card--active {
++    transform: translateY(-2px);
++    box-shadow: 0 16px 24px -18px rgba(76, 110, 245, 0.65);
++    border-color: rgba(76, 110, 245, 0.4);
++}
++
++.course-card:focus {
++    outline: 2px solid rgba(76, 110, 245, 0.45);
++    outline-offset: 3px;
+ }
+ 
+ .course-card-header {
+     display: flex;
+     align-items: flex-start;
+     justify-content: space-between;
+     gap: 0.75rem;
+ }
+ 
+ .course-card h3 {
+     font-size: 1.05rem;
+     line-height: 1.35;
+ }
+ 
+ .course-card-description {
+     color: var(--text-muted);
+     font-size: 0.95rem;
+     line-height: 1.5;
+ }
+ 
+ .course-progress {
+     display: flex;
+     flex-direction: column;
+     gap: 0.45rem;
+ }
+@@ -278,50 +293,340 @@ body {
+     gap: 0.75rem;
+     color: var(--text-muted);
+     font-size: 0.85rem;
+ }
+ 
+ .course-status {
+     display: inline-flex;
+     align-items: center;
+     justify-content: center;
+     font-size: 0.75rem;
+     font-weight: 600;
+     letter-spacing: 0.04em;
+     text-transform: uppercase;
+     padding: 0.25rem 0.7rem;
+     border-radius: 999px;
+     background: rgba(76, 110, 245, 0.12);
+     color: var(--primary-dark);
+     white-space: nowrap;
+ }
+ 
+ .course-status--completed {
+     background: rgba(46, 204, 113, 0.12);
+     color: var(--success);
+ }
+ 
++.course-detail-panel {
++    gap: 1.75rem;
++}
++
++.course-detail-empty {
++    padding: 1.5rem;
++    border-radius: 14px;
++    background: var(--surface-alt);
++    border: 1px dashed rgba(76, 110, 245, 0.3);
++    text-align: center;
++    font-size: 0.95rem;
++    color: var(--text-muted);
++}
++
++.course-detail-content {
++    display: flex;
++    flex-direction: column;
++    gap: 1.5rem;
++}
++
++.course-detail-header {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 1.5rem;
++}
++
++.course-detail-heading {
++    display: flex;
++    flex-direction: column;
++    gap: 0.4rem;
++    max-width: min(520px, 100%);
++}
++
++.course-detail-heading h2 {
++    font-size: clamp(1.4rem, 2.6vw, 1.75rem);
++}
++
++.course-detail-description {
++    color: var(--text-muted);
++    line-height: 1.6;
++}
++
++.course-detail-progress {
++    display: flex;
++    flex-direction: column;
++    align-items: flex-start;
++    gap: 0.6rem;
++    min-width: 220px;
++}
++
++.course-detail-progress-label {
++    font-weight: 600;
++    font-size: 0.9rem;
++    color: var(--text-muted);
++}
++
++.course-detail-progress-bar {
++    width: 220px;
++    max-width: 100%;
++    height: 0.75rem;
++    background: rgba(148, 163, 184, 0.25);
++    border-radius: 999px;
++    overflow: hidden;
++}
++
++.course-detail-progress-fill {
++    width: 0;
++    height: 100%;
++    border-radius: 999px;
++    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
++    transition: width 240ms ease;
++}
++
++.course-detail-progress-summary {
++    font-weight: 600;
++}
++
++.course-tabs {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.5rem;
++}
++
++.course-tab {
++    border: 1px solid rgba(76, 110, 245, 0.15);
++    background: rgba(248, 250, 252, 0.9);
++    color: var(--text);
++    padding: 0.6rem 1.1rem;
++    border-radius: 999px;
++    font-weight: 600;
++    cursor: pointer;
++    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
++}
++
++.course-tab.is-active {
++    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
++    color: white;
++    border-color: transparent;
++}
++
++.course-tab:focus {
++    outline: 2px solid rgba(76, 110, 245, 0.45);
++    outline-offset: 2px;
++}
++
++.course-tabpanel {
++    display: flex;
++    flex-direction: column;
++    gap: 1.1rem;
++}
++
++.course-tabpanel[hidden] {
++    display: none;
++}
++
++.course-selected-topic {
++    font-size: 1.1rem;
++    font-weight: 600;
++}
++
++.course-topics-list {
++    display: flex;
++    flex-direction: column;
++    gap: 1rem;
++}
++
++.course-topic {
++    border-radius: 16px;
++    border: 1px solid rgba(76, 110, 245, 0.15);
++    overflow: hidden;
++    background: rgba(248, 250, 252, 0.75);
++}
++
++.course-topic-header {
++    width: 100%;
++    border: none;
++    display: flex;
++    justify-content: space-between;
++    align-items: center;
++    gap: 1rem;
++    background: transparent;
++    padding: 1.1rem 1.25rem;
++    cursor: pointer;
++    text-align: left;
++}
++
++.course-topic-header h3 {
++    font-size: 1.05rem;
++    margin-bottom: 0.25rem;
++}
++
++.course-topic-header span {
++    display: block;
++    font-size: 0.9rem;
++    color: var(--text-muted);
++}
++
++.course-topic-meta {
++    display: flex;
++    flex-direction: column;
++    align-items: flex-end;
++    gap: 0.35rem;
++    font-size: 0.9rem;
++}
++
++.course-topic--active {
++    border-color: rgba(76, 110, 245, 0.45);
++    box-shadow: 0 14px 26px -18px rgba(76, 110, 245, 0.55);
++    background: white;
++}
++
++.course-topic--active .course-topic-header {
++    background: rgba(76, 110, 245, 0.08);
++}
++
++.course-subtopics {
++    list-style: none;
++    display: flex;
++    flex-direction: column;
++    gap: 0.65rem;
++    padding: 0 1.25rem 1.25rem;
++}
++
++.course-subtopic {
++    display: flex;
++    align-items: flex-start;
++    gap: 0.75rem;
++}
++
++.course-subtopic input[type='checkbox'] {
++    width: 1.1rem;
++    height: 1.1rem;
++    margin-top: 0.15rem;
++    accent-color: var(--primary);
++}
++
++.course-subtopic label {
++    display: flex;
++    flex-direction: column;
++    gap: 0.2rem;
++    font-size: 0.95rem;
++}
++
++.course-subtopic label span {
++    color: var(--text-muted);
++    font-size: 0.85rem;
++}
++
++.course-detail-actions {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: 0.85rem;
++}
++
++.course-detail-feedback {
++    font-size: 0.9rem;
++    color: var(--text-muted);
++    min-height: 1.2rem;
++}
++
++.course-detail-feedback[data-status='success'] {
++    color: var(--success);
++}
++
++.course-detail-feedback[data-status='error'] {
++    color: var(--danger);
++}
++
++.course-detail-feedback[data-status='loading'] {
++    color: var(--primary-dark);
++}
++
++.course-placeholder {
++    color: var(--text-muted);
++    font-size: 0.95rem;
++}
++
++.course-quizzes-list {
++    list-style: none;
++    display: flex;
++    flex-direction: column;
++    gap: 0.85rem;
++}
++
++.course-quiz-item {
++    padding: 1rem 1.2rem;
++    border-radius: 14px;
++    background: var(--surface-alt);
++    border: 1px solid rgba(76, 110, 245, 0.12);
++}
++
++.course-quiz-item h4 {
++    font-size: 1.05rem;
++    margin-bottom: 0.35rem;
++}
++
++.course-quiz-item p {
++    color: var(--text-muted);
++    font-size: 0.9rem;
++}
++
++.course-statistics-grid {
++    display: grid;
++    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
++    gap: 1rem;
++}
++
++.course-stat-card {
++    padding: 1.1rem;
++    border-radius: 16px;
++    background: var(--surface-alt);
++    border: 1px solid rgba(76, 110, 245, 0.12);
++    display: flex;
++    flex-direction: column;
++    gap: 0.35rem;
++}
++
++.course-stat-card span {
++    font-size: 0.85rem;
++    color: var(--text-muted);
++}
++
++.course-stat-card strong {
++    font-size: 1.4rem;
++    font-weight: 700;
++}
++
+ .primary-button--small {
+     padding: 0.65rem 1rem;
+     font-size: 0.95rem;
+ }
+ 
+ .modal-overlay {
+     position: fixed;
+     inset: 0;
+     display: grid;
+     place-items: center;
+     background: rgba(15, 23, 42, 0.55);
+     backdrop-filter: blur(6px);
+     padding: 1.5rem;
+     z-index: 30;
+ }
+ 
+ .modal-overlay[hidden] {
+     display: none;
+ }
+ 
+ .modal-card {
+     width: min(460px, 95vw);
+     display: flex;
+     flex-direction: column;
+     gap: 1rem;
+        background: white;}

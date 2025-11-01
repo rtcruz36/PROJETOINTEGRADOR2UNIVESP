@@ -29,11 +29,31 @@ const selectors = {
     createPlanError: document.getElementById('create-plan-error'),
     createPlanCancel: document.getElementById('cancel-create-plan'),
     createPlanSubmit: document.getElementById('submit-create-plan'),
+    courseDetailPanel: document.getElementById('course-detail-panel'),
+    courseDetailEmpty: document.getElementById('course-detail-empty'),
+    courseDetailContent: document.getElementById('course-detail-content'),
+    courseDetailTitle: document.getElementById('course-detail-title'),
+    courseDetailDescription: document.getElementById('course-detail-description'),
+    courseDetailProgressFill: document.getElementById('course-detail-progress-fill'),
+    courseDetailProgressSummary: document.getElementById('course-detail-progress-summary'),
+    courseSelectedTopic: document.getElementById('course-selected-topic'),
+    courseTopicsList: document.getElementById('course-topics-list'),
+    generateScheduleButton: document.getElementById('generate-schedule-button'),
+    scheduleFeedback: document.getElementById('schedule-feedback'),
+    courseTabButtons: Array.from(document.querySelectorAll('[data-course-tab]')),
+    courseTabPanels: Array.from(document.querySelectorAll('[data-course-panel]')),
+    courseQuizzesList: document.getElementById('course-quizzes-list'),
+    courseQuizzesMessage: document.getElementById('course-quizzes-message'),
+    courseStatisticsContent: document.getElementById('course-statistics-content'),
 };
 
 const state = {
     chart: null,
     courseLibrary: [],
+    selectedCourseId: null,
+    selectedTopicId: null,
+    activeCourseTab: 'overview',
+    topicQuizzes: new Map(),
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -60,6 +80,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.target === selectors.createPlanModal) {
                 closeCreatePlanModal();
             }
+        });
+    }
+
+    if (selectors.generateScheduleButton) {
+        selectors.generateScheduleButton.addEventListener('click', handleGenerateScheduleClick);
+    }
+
+    if (selectors.courseTabButtons?.length) {
+        selectors.courseTabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                activateCourseTab(button.dataset.courseTab);
+            });
         });
     }
 
@@ -324,6 +356,103 @@ function renderRecommendedQuiz(payload) {
     container.appendChild(link);
 }
 
+function buildSummaryStats(coursesData, attemptsData, engagement) {
+    const courses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
+    const attempts = Array.isArray(attemptsData?.results) ? attemptsData.results : attemptsData || [];
+
+    let totalCourses = courses.length;
+    let topicsInProgress = 0;
+    let totalSubtopics = 0;
+    let completedSubtopics = 0;
+
+    courses.forEach((course) => {
+        const topics = course.topics || [];
+        topics.forEach((topic) => {
+            const subtopics = topic.subtopics || [];
+            const completed = subtopics.filter((sub) => sub.is_completed).length;
+            if (subtopics.length > 0 && completed < subtopics.length) {
+                topicsInProgress += 1;
+            }
+            totalSubtopics += subtopics.length;
+            completedSubtopics += completed;
+        });
+    });
+
+    const percentage = totalSubtopics === 0 ? 0 : Math.round((completedSubtopics / totalSubtopics) * 100);
+    const studyTotal = calculateStudyTotalMinutes(engagement);
+
+    return {
+        totalCourses,
+        topicsInProgress,
+        quizzesCompleted: attempts.length,
+        studyTotal,
+        streak: {
+            current: engagement?.current_streak || 0,
+            best: engagement?.best_streak || 0,
+        },
+        progress: {
+            total: totalSubtopics,
+            completed: completedSubtopics,
+            percentage,
+        },
+    };
+}
+
+function calculateStudyTotalMinutes(engagement) {
+    const total = engagement?.total_minutes_last_7_days;
+    return typeof total === 'number' && !Number.isNaN(total) ? total : 0;
+}
+
+function buildStudySeries(logsData) {
+    const logs = Array.isArray(logsData?.results) ? logsData.results : logsData || [];
+    const today = new Date();
+    const days = [];
+    for (let offset = 6; offset >= 0; offset -= 1) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - offset);
+        days.push(date);
+    }
+
+    const minutesPerDay = new Map(days.map((date) => [formatIsoDate(date), 0]));
+
+    logs.forEach((log) => {
+        if (!log.date || typeof log.minutes_studied !== 'number') {
+            return;
+        }
+        const dayKey = log.date;
+        if (minutesPerDay.has(dayKey)) {
+            const current = minutesPerDay.get(dayKey) ?? 0;
+            minutesPerDay.set(dayKey, current + log.minutes_studied);
+        }
+    });
+
+    const formatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit' });
+    const labels = [];
+    const values = [];
+
+    minutesPerDay.forEach((minutes, isoDate) => {
+        const date = new Date(`${isoDate}T00:00:00`);
+        labels.push(capitalize(formatter.format(date)));
+        values.push(minutes);
+    });
+
+    const studyTotal = Array.from(minutesPerDay.values()).reduce((acc, value) => acc + value, 0);
+    selectors.studyTotal.textContent = `${studyTotal} minutos totais`;
+
+    return { labels, values };
+}
+
+function capitalize(text) {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function formatIsoDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function updateCourseLibrary(coursesData) {
     if (!selectors.courseLibraryList) {
         return;
@@ -331,7 +460,41 @@ function updateCourseLibrary(coursesData) {
 
     const rawCourses = Array.isArray(coursesData?.results) ? coursesData.results : coursesData || [];
     state.courseLibrary = rawCourses.map((course) => decorateCourse(course));
+
+    const validTopicIds = new Set();
+    state.courseLibrary.forEach((course) => {
+        course.topics.forEach((topic) => {
+            validTopicIds.add(topic.id);
+        });
+    });
+
+    state.topicQuizzes = new Map(
+        Array.from(state.topicQuizzes.entries()).filter(([topicId]) => validTopicIds.has(Number(topicId))),
+    );
+
+    if (!state.courseLibrary.length) {
+        state.selectedCourseId = null;
+        state.selectedTopicId = null;
+        updateCourseDetail(null);
+        renderCourseLibrary();
+        return;
+    }
+
+    if (!state.selectedCourseId || !state.courseLibrary.some((course) => course.id === state.selectedCourseId)) {
+        state.selectedCourseId = state.courseLibrary[0].id;
+    }
+
+    const selectedCourse = getSelectedCourse();
+    if (selectedCourse) {
+        if (!state.selectedTopicId || !selectedCourse.topics.some((topic) => topic.id === state.selectedTopicId)) {
+            state.selectedTopicId = selectedCourse.topics[0]?.id || null;
+        }
+    } else {
+        state.selectedTopicId = null;
+    }
+
     renderCourseLibrary();
+    updateCourseDetail(selectedCourse || null);
 }
 
 function decorateCourse(course) {
@@ -339,10 +502,21 @@ function decorateCourse(course) {
     let totalSubtopics = 0;
     let completedSubtopics = 0;
 
-    topics.forEach((topic) => {
+    const decoratedTopics = topics.map((topic) => {
         const subtopics = Array.isArray(topic?.subtopics) ? topic.subtopics : [];
-        totalSubtopics += subtopics.length;
-        completedSubtopics += subtopics.filter((item) => item?.is_completed).length;
+        const topicTotal = subtopics.length;
+        const topicCompleted = subtopics.filter((item) => item?.is_completed).length;
+
+        totalSubtopics += topicTotal;
+        completedSubtopics += topicCompleted;
+
+        return {
+            ...topic,
+            subtopics,
+            totalSubtopics: topicTotal,
+            completedSubtopics: topicCompleted,
+            progressPercentage: topicTotal === 0 ? 0 : Math.round((topicCompleted / topicTotal) * 100),
+        };
     });
 
     const percentage = totalSubtopics === 0 ? 0 : Math.round((completedSubtopics / totalSubtopics) * 100);
@@ -350,7 +524,7 @@ function decorateCourse(course) {
 
     return {
         ...course,
-        topics,
+        topics: decoratedTopics,
         totalSubtopics,
         completedSubtopics,
         progressPercentage: percentage,
@@ -367,6 +541,8 @@ function renderCourseLibrary() {
     const filteredCourses = getFilteredCourses();
     selectors.courseLibraryList.innerHTML = '';
 
+    let selectionChanged = false;
+
     if (!filteredCourses.length) {
         if (selectors.courseLibraryEmpty) {
             const message = statusValue === 'all'
@@ -375,11 +551,25 @@ function renderCourseLibrary() {
             selectors.courseLibraryEmpty.textContent = message;
             selectors.courseLibraryEmpty.hidden = false;
         }
+        if (state.selectedCourseId !== null || state.selectedTopicId !== null) {
+            state.selectedCourseId = null;
+            state.selectedTopicId = null;
+            selectionChanged = true;
+        }
+        if (selectionChanged) {
+            updateCourseDetail(null);
+        }
         return;
     }
 
     if (selectors.courseLibraryEmpty) {
         selectors.courseLibraryEmpty.hidden = true;
+    }
+
+    if (!filteredCourses.some((course) => course.id === state.selectedCourseId)) {
+        state.selectedCourseId = filteredCourses[0]?.id ?? null;
+        state.selectedTopicId = filteredCourses[0]?.topics[0]?.id || null;
+        selectionChanged = true;
     }
 
     const fragment = document.createDocumentFragment();
@@ -388,6 +578,10 @@ function renderCourseLibrary() {
     });
 
     selectors.courseLibraryList.appendChild(fragment);
+
+    if (selectionChanged) {
+        updateCourseDetail(getSelectedCourse());
+    }
 }
 
 function getFilteredCourses() {
@@ -415,6 +609,12 @@ function getFilteredCourses() {
 function buildCourseCard(course) {
     const card = document.createElement('article');
     card.className = 'course-card';
+    card.dataset.courseId = String(course.id);
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
+    if (course.id === state.selectedCourseId) {
+        card.classList.add('course-card--active');
+    }
 
     const header = document.createElement('div');
     header.className = 'course-card-header';
@@ -478,7 +678,511 @@ function buildCourseCard(course) {
 
     card.appendChild(metadata);
 
+    card.addEventListener('click', () => handleCourseSelection(course.id));
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleCourseSelection(course.id);
+        }
+    });
+
     return card;
+}
+
+function handleCourseSelection(courseId) {
+    if (state.selectedCourseId === courseId) {
+        return;
+    }
+    state.selectedCourseId = courseId;
+
+    const course = getSelectedCourse();
+    if (!course) {
+        state.selectedTopicId = null;
+        updateCourseDetail(null);
+        renderCourseLibrary();
+        return;
+    }
+
+    if (!course.topics.some((topic) => topic.id === state.selectedTopicId)) {
+        state.selectedTopicId = course.topics[0]?.id || null;
+    }
+
+    resetScheduleFeedback();
+    updateCourseDetail(course);
+    renderCourseLibrary();
+}
+
+function getSelectedCourse() {
+    if (!state.selectedCourseId) {
+        return null;
+    }
+    return state.courseLibrary.find((course) => course.id === state.selectedCourseId) || null;
+}
+
+function getSelectedTopic(course = getSelectedCourse()) {
+    if (!course) {
+        return null;
+    }
+    return course.topics.find((topic) => topic.id === state.selectedTopicId) || null;
+}
+
+function updateCourseDetail(course) {
+    if (!selectors.courseDetailPanel) {
+        return;
+    }
+
+    resetScheduleFeedback();
+
+    if (!course) {
+        if (selectors.courseDetailEmpty) {
+            selectors.courseDetailEmpty.hidden = false;
+        }
+        if (selectors.courseDetailContent) {
+            selectors.courseDetailContent.hidden = true;
+        }
+        if (selectors.courseDetailTitle) {
+            selectors.courseDetailTitle.textContent = 'Selecione um curso';
+        }
+        if (selectors.courseDetailDescription) {
+            selectors.courseDetailDescription.textContent =
+                'Escolha uma disciplina na biblioteca para visualizar os tópicos e gerar um cronograma.';
+        }
+        renderCourseTopics(null);
+        renderCourseQuizzes(null);
+        renderCourseStatistics(null);
+        activateCourseTab('overview');
+        return;
+    }
+
+    if (selectors.courseDetailEmpty) {
+        selectors.courseDetailEmpty.hidden = true;
+    }
+    if (selectors.courseDetailContent) {
+        selectors.courseDetailContent.hidden = false;
+    }
+
+    if (selectors.courseDetailTitle) {
+        selectors.courseDetailTitle.textContent = course.title;
+    }
+    if (selectors.courseDetailDescription) {
+        selectors.courseDetailDescription.textContent = course.description
+            ? course.description
+            : 'Este curso ainda não possui uma descrição cadastrada.';
+    }
+
+    if (selectors.courseDetailProgressFill) {
+        const progressValue = Math.max(0, Math.min(Number(course.progressPercentage) || 0, 100));
+        selectors.courseDetailProgressFill.style.width = `${progressValue}%`;
+    }
+    if (selectors.courseDetailProgressSummary) {
+        const total = course.totalSubtopics || 0;
+        selectors.courseDetailProgressSummary.textContent = `${course.completedSubtopics} de ${total} subtópicos concluídos`;
+    }
+
+    renderCourseTopics(course);
+    renderCourseQuizzes(state.selectedTopicId);
+    renderCourseStatistics(course);
+    activateCourseTab(state.activeCourseTab);
+}
+
+function renderCourseTopics(course) {
+    if (!selectors.courseTopicsList || !selectors.courseSelectedTopic) {
+        return;
+    }
+
+    selectors.courseTopicsList.innerHTML = '';
+
+    if (!course) {
+        selectors.courseSelectedTopic.textContent = 'Nenhum tópico selecionado';
+        if (selectors.generateScheduleButton) {
+            selectors.generateScheduleButton.disabled = true;
+        }
+        return;
+    }
+
+    const topics = Array.isArray(course.topics) ? [...course.topics] : [];
+    topics.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (!topics.length) {
+        selectors.courseSelectedTopic.textContent = 'Nenhum tópico disponível';
+        if (selectors.generateScheduleButton) {
+            selectors.generateScheduleButton.disabled = true;
+        }
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'course-placeholder';
+        emptyMessage.textContent = 'Cadastre tópicos para acompanhar o progresso desta disciplina.';
+        selectors.courseTopicsList.appendChild(emptyMessage);
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    topics.forEach((topic) => {
+        const container = document.createElement('article');
+        container.className = 'course-topic';
+        if (topic.id === state.selectedTopicId) {
+            container.classList.add('course-topic--active');
+        }
+
+        const headerButton = document.createElement('button');
+        headerButton.type = 'button';
+        headerButton.className = 'course-topic-header';
+        headerButton.addEventListener('click', () => handleTopicSelection(topic.id));
+
+        const info = document.createElement('div');
+        const title = document.createElement('h3');
+        title.textContent = topic.title;
+        info.appendChild(title);
+
+        const summary = document.createElement('span');
+        summary.textContent = topic.totalSubtopics
+            ? `${topic.completedSubtopics} de ${topic.totalSubtopics} subtópicos concluídos`
+            : 'Nenhum subtópico cadastrado';
+        info.appendChild(summary);
+
+        if (topic.suggested_study_plan) {
+            const suggestion = document.createElement('span');
+            suggestion.textContent = topic.suggested_study_plan;
+            info.appendChild(suggestion);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'course-topic-meta';
+        const percentage = document.createElement('strong');
+        percentage.textContent = `${topic.progressPercentage}%`;
+        meta.appendChild(percentage);
+        const label = document.createElement('span');
+        label.textContent = 'Concluído';
+        meta.appendChild(label);
+
+        headerButton.appendChild(info);
+        headerButton.appendChild(meta);
+        container.appendChild(headerButton);
+
+        const subtopicsList = document.createElement('ul');
+        subtopicsList.className = 'course-subtopics';
+
+        if (!topic.subtopics.length) {
+            const emptyItem = document.createElement('li');
+            emptyItem.className = 'course-placeholder';
+            emptyItem.textContent = 'Nenhum subtópico cadastrado para este tópico.';
+            subtopicsList.appendChild(emptyItem);
+        } else {
+            topic.subtopics.forEach((subtopic) => {
+                const item = document.createElement('li');
+                item.className = 'course-subtopic';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = Boolean(subtopic.is_completed);
+                checkbox.disabled = true;
+                const checkboxId = `topic-${topic.id}-subtopic-${subtopic.id}`;
+                checkbox.id = checkboxId;
+                item.appendChild(checkbox);
+
+                const labelNode = document.createElement('label');
+                labelNode.setAttribute('for', checkboxId);
+                labelNode.textContent = subtopic.title;
+
+                if (subtopic.details) {
+                    const details = document.createElement('span');
+                    details.textContent = subtopic.details;
+                    labelNode.appendChild(details);
+                }
+
+                item.appendChild(labelNode);
+                subtopicsList.appendChild(item);
+            });
+        }
+
+        container.appendChild(subtopicsList);
+        fragment.appendChild(container);
+    });
+
+    selectors.courseTopicsList.appendChild(fragment);
+
+    const selectedTopic = topics.find((topic) => topic.id === state.selectedTopicId) || topics[0];
+    selectors.courseSelectedTopic.textContent = selectedTopic
+        ? `Cronograma focado no tópico: ${selectedTopic.title}`
+        : 'Nenhum tópico selecionado';
+
+    if (selectors.generateScheduleButton) {
+        selectors.generateScheduleButton.disabled = !selectedTopic || !selectedTopic.totalSubtopics;
+    }
+}
+
+function handleTopicSelection(topicId) {
+    if (state.selectedTopicId === topicId) {
+        return;
+    }
+    state.selectedTopicId = topicId;
+    const course = getSelectedCourse();
+    renderCourseTopics(course);
+    resetScheduleFeedback();
+
+    if (state.activeCourseTab === 'quizzes') {
+        ensureTopicQuizzes(topicId);
+    } else {
+        renderCourseQuizzes(topicId);
+    }
+}
+
+function activateCourseTab(tabName = 'overview') {
+    if (!selectors.courseTabButtons?.length || !selectors.courseTabPanels?.length) {
+        return;
+    }
+
+    const normalized = ['overview', 'quizzes', 'statistics'].includes(tabName) ? tabName : 'overview';
+    state.activeCourseTab = normalized;
+
+    selectors.courseTabButtons.forEach((button) => {
+        const isActive = button.dataset.courseTab === normalized;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    selectors.courseTabPanels.forEach((panel) => {
+        const isActive = panel.dataset.coursePanel === normalized;
+        panel.classList.toggle('is-active', isActive);
+        panel.hidden = !isActive;
+    });
+
+    if (normalized === 'quizzes') {
+        renderCourseQuizzes(state.selectedTopicId);
+        ensureTopicQuizzes(state.selectedTopicId);
+    } else if (normalized === 'statistics') {
+        renderCourseStatistics(getSelectedCourse());
+    } else if (normalized === 'overview') {
+        renderCourseTopics(getSelectedCourse());
+    }
+}
+
+function renderCourseQuizzes(topicId) {
+    if (!selectors.courseQuizzesList || !selectors.courseQuizzesMessage) {
+        return;
+    }
+
+    selectors.courseQuizzesList.innerHTML = '';
+    selectors.courseQuizzesMessage.dataset.status = '';
+
+    const course = getSelectedCourse();
+    if (!course) {
+        selectors.courseQuizzesMessage.textContent = 'Selecione um curso para visualizar os quizzes disponíveis.';
+        return;
+    }
+    const topic = course?.topics.find((item) => item.id === topicId) || null;
+
+    if (!topic) {
+        selectors.courseQuizzesMessage.textContent = 'Selecione um tópico para ver os quizzes relacionados.';
+        return;
+    }
+
+    const normalizedId = Number(topic.id);
+    const cacheEntry = state.topicQuizzes.get(normalizedId);
+
+    if (!cacheEntry) {
+        selectors.courseQuizzesMessage.textContent = 'Selecione a aba Quizzes para carregar as atividades deste tópico.';
+        return;
+    }
+
+    if (cacheEntry.status === 'loading') {
+        selectors.courseQuizzesMessage.dataset.status = 'loading';
+        selectors.courseQuizzesMessage.textContent = 'Carregando quizzes...';
+        return;
+    }
+
+    if (cacheEntry.status === 'error') {
+        selectors.courseQuizzesMessage.dataset.status = 'error';
+        selectors.courseQuizzesMessage.textContent = cacheEntry.message || 'Não foi possível carregar os quizzes.';
+        return;
+    }
+
+    const quizzes = Array.isArray(cacheEntry.items) ? cacheEntry.items : [];
+
+    if (!quizzes.length) {
+        selectors.courseQuizzesMessage.textContent = 'Nenhum quiz cadastrado para este tópico ainda.';
+        return;
+    }
+
+    selectors.courseQuizzesMessage.textContent = `Quizzes disponíveis para ${topic.title}:`;
+
+    const fragment = document.createDocumentFragment();
+    quizzes.forEach((quiz) => {
+        const item = document.createElement('li');
+        item.className = 'course-quiz-item';
+
+        const title = document.createElement('h4');
+        title.textContent = quiz.title || 'Quiz sem título';
+        item.appendChild(title);
+
+        if (quiz.description) {
+            const description = document.createElement('p');
+            description.textContent = quiz.description;
+            item.appendChild(description);
+        }
+
+        const metadata = document.createElement('p');
+        metadata.className = 'course-placeholder';
+        const totalQuestions = quiz.total_questions ?? quiz.questions?.length ?? 0;
+        const createdAt = formatHumanDate(quiz.created_at);
+        metadata.textContent = createdAt
+            ? `${totalQuestions} pergunta(s) • Criado em ${createdAt}`
+            : `${totalQuestions} pergunta(s)`;
+        item.appendChild(metadata);
+
+        fragment.appendChild(item);
+    });
+
+    selectors.courseQuizzesList.appendChild(fragment);
+}
+
+async function ensureTopicQuizzes(topicId) {
+    const normalizedId = Number(topicId);
+    if (!normalizedId) {
+        renderCourseQuizzes(null);
+        return;
+    }
+
+    const existing = state.topicQuizzes.get(normalizedId);
+    if (existing && existing.status === 'loaded') {
+        renderCourseQuizzes(normalizedId);
+        return;
+    }
+
+    state.topicQuizzes.set(normalizedId, { status: 'loading' });
+    renderCourseQuizzes(normalizedId);
+
+    try {
+        const data = await apiFetch(`/assessment/quizzes/?topic=${encodeURIComponent(normalizedId)}`);
+        const items = Array.isArray(data?.results) ? data.results : data || [];
+        state.topicQuizzes.set(normalizedId, { status: 'loaded', items });
+        renderCourseQuizzes(normalizedId);
+    } catch (error) {
+        console.error('Erro ao carregar quizzes do tópico:', error);
+        state.topicQuizzes.set(normalizedId, {
+            status: 'error',
+            message: error.message || 'Não foi possível carregar os quizzes deste tópico.',
+        });
+        renderCourseQuizzes(normalizedId);
+    }
+}
+
+function renderCourseStatistics(course) {
+    if (!selectors.courseStatisticsContent) {
+        return;
+    }
+
+    selectors.courseStatisticsContent.innerHTML = '';
+
+    if (!course) {
+        return;
+    }
+
+    const topics = Array.isArray(course.topics) ? course.topics : [];
+    const completedTopics = topics.filter((topic) => topic.totalSubtopics > 0 && topic.totalSubtopics === topic.completedSubtopics).length;
+    const activeTopics = Math.max(topics.length - completedTopics, 0);
+    const completionRate = course.totalSubtopics
+        ? Math.round((course.completedSubtopics / course.totalSubtopics) * 100)
+        : 0;
+
+    const stats = [
+        { label: 'Tópicos cadastrados', value: topics.length },
+        { label: 'Tópicos concluídos', value: completedTopics },
+        { label: 'Subtópicos concluídos', value: course.completedSubtopics },
+        { label: 'Taxa de conclusão', value: `${completionRate}%` },
+    ];
+
+    if (activeTopics > 0) {
+        stats.push({ label: 'Tópicos em andamento', value: activeTopics });
+    }
+
+    const fragment = document.createDocumentFragment();
+    stats.forEach((stat) => {
+        const card = document.createElement('div');
+        card.className = 'course-stat-card';
+        const value = document.createElement('strong');
+        value.textContent = String(stat.value);
+        const label = document.createElement('span');
+        label.textContent = stat.label;
+        card.appendChild(value);
+        card.appendChild(label);
+        fragment.appendChild(card);
+    });
+
+    selectors.courseStatisticsContent.appendChild(fragment);
+}
+
+async function handleGenerateScheduleClick() {
+    const course = getSelectedCourse();
+    if (!course) {
+        setScheduleFeedback('error', 'Selecione um curso para gerar o cronograma.');
+        return;
+    }
+
+    const topic = getSelectedTopic(course);
+    if (!topic) {
+        setScheduleFeedback('error', 'Selecione um tópico para gerar o cronograma.');
+        return;
+    }
+
+    if (!topic.totalSubtopics) {
+        setScheduleFeedback('error', 'Este tópico ainda não possui subtópicos suficientes para gerar um cronograma.');
+        return;
+    }
+
+    const button = selectors.generateScheduleButton;
+    const originalLabel = button?.textContent;
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Gerando...';
+    }
+
+    setScheduleFeedback('loading', 'Gerando cronograma com base nas suas metas de estudo...');
+
+    try {
+        const response = await apiFetch('/scheduling/generate-schedule/', {
+            method: 'POST',
+            body: JSON.stringify({ topic_id: topic.id }),
+        });
+
+        const totalMinutes = response?.summary?.total_estimated_minutes ?? 0;
+        const daysWithStudy = response?.summary?.days_with_study ?? 0;
+        const pieces = [`Cronograma criado para ${response?.topic?.title || topic.title}.`];
+
+        if (totalMinutes) {
+            pieces.push(`${totalMinutes} minuto(s) distribuído(s) na semana.`);
+        }
+
+        if (daysWithStudy) {
+            pieces.push(`${daysWithStudy} dia(s) com sessões planejadas.`);
+        }
+
+        setScheduleFeedback('success', pieces.join(' '));
+    } catch (error) {
+        console.error('Erro ao gerar cronograma:', error);
+        setScheduleFeedback('error', error.message || 'Não foi possível gerar o cronograma.');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalLabel || 'Gerar cronograma de estudo';
+        }
+    }
+}
+
+function resetScheduleFeedback() {
+    setScheduleFeedback('', '');
+}
+
+function setScheduleFeedback(status, message) {
+    if (!selectors.scheduleFeedback) {
+        return;
+    }
+    if (status) {
+        selectors.scheduleFeedback.dataset.status = status;
+    } else {
+        delete selectors.scheduleFeedback.dataset.status;
+    }
+    selectors.scheduleFeedback.textContent = message || '';
 }
 
 function parseDate(value) {

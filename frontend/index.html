@@ -96,6 +96,107 @@
                 <div id="course-library-list" class="course-library-grid" aria-live="polite"></div>
             </article>
 
+            <article id="course-detail-panel" class="panel course-detail-panel" aria-labelledby="course-detail-title">
+                <div id="course-detail-empty" class="course-detail-empty" role="status">
+                    Selecione um curso na biblioteca para visualizar seus detalhes.
+                </div>
+
+                <div id="course-detail-content" class="course-detail-content" hidden>
+                    <header class="course-detail-header">
+                        <div class="course-detail-heading">
+                            <span class="panel-subtitle">Detalhes do Curso</span>
+                            <h2 id="course-detail-title">—</h2>
+                            <p id="course-detail-description" class="course-detail-description"></p>
+                        </div>
+                        <div class="course-detail-progress" aria-live="polite">
+                            <span class="course-detail-progress-label">Progresso geral</span>
+                            <div class="course-detail-progress-bar" aria-hidden="true">
+                                <div id="course-detail-progress-fill" class="course-detail-progress-fill"></div>
+                            </div>
+                            <p id="course-detail-progress-summary" class="course-detail-progress-summary">--</p>
+                        </div>
+                    </header>
+
+                    <nav class="course-tabs" role="tablist" aria-label="Seções do curso selecionado">
+                        <button
+                            type="button"
+                            class="course-tab is-active"
+                            role="tab"
+                            aria-selected="true"
+                            id="course-tab-button-overview"
+                            aria-controls="course-tab-overview"
+                            data-course-tab="overview"
+                        >
+                            Visão geral
+                        </button>
+                        <button
+                            type="button"
+                            class="course-tab"
+                            role="tab"
+                            aria-selected="false"
+                            id="course-tab-button-quizzes"
+                            aria-controls="course-tab-quizzes"
+                            data-course-tab="quizzes"
+                        >
+                            Quizzes
+                        </button>
+                        <button
+                            type="button"
+                            class="course-tab"
+                            role="tab"
+                            aria-selected="false"
+                            id="course-tab-button-statistics"
+                            aria-controls="course-tab-statistics"
+                            data-course-tab="statistics"
+                        >
+                            Estatísticas
+                        </button>
+                    </nav>
+
+                    <section
+                        id="course-tab-overview"
+                        class="course-tabpanel is-active"
+                        role="tabpanel"
+                        aria-labelledby="course-tab-button-overview"
+                        data-course-panel="overview"
+                    >
+                        <h3 id="course-selected-topic" class="course-selected-topic">Nenhum tópico selecionado</h3>
+                        <div id="course-topics-list" class="course-topics-list"></div>
+                        <div class="course-detail-actions">
+                            <button id="generate-schedule-button" class="primary-button" type="button">
+                                Gerar cronograma de estudo
+                            </button>
+                            <p id="schedule-feedback" class="course-detail-feedback" role="status"></p>
+                        </div>
+                    </section>
+
+                    <section
+                        id="course-tab-quizzes"
+                        class="course-tabpanel"
+                        role="tabpanel"
+                        tabindex="0"
+                        aria-labelledby="course-tab-button-quizzes"
+                        data-course-panel="quizzes"
+                        hidden
+                    >
+                        <p id="course-quizzes-message" class="course-placeholder"></p>
+                        <ul id="course-quizzes-list" class="course-quizzes-list"></ul>
+                    </section>
+
+                    <section
+                        id="course-tab-statistics"
+                        class="course-tabpanel"
+                        role="tabpanel"
+                        tabindex="0"
+                        aria-labelledby="course-tab-button-statistics"
+                        data-course-panel="statistics"
+                        hidden
+                    >
+                        <div id="course-statistics-content" class="course-statistics-grid"></div>
+                    </section>
+                </div>
+            </article>
+
             <section class="grid-layout">
                 <article class="panel chart-panel">
                     <header>
